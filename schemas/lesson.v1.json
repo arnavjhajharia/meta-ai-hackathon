@@ -1,0 +1,591 @@
+{
+  "$defs": {
+    "Amount": {
+      "additionalProperties": false,
+      "properties": {
+        "object": {
+          "title": "Object",
+          "type": "string"
+        },
+        "measure": {
+          "const": "work_area_fraction",
+          "default": "work_area_fraction",
+          "title": "Measure",
+          "type": "string"
+        },
+        "teacher_value": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Teacher Value"
+        },
+        "tolerance": {
+          "exclusiveMinimum": 0,
+          "title": "Tolerance",
+          "type": "number"
+        }
+      },
+      "required": [
+        "object",
+        "tolerance"
+      ],
+      "title": "Amount",
+      "type": "object"
+    },
+    "Calibration": {
+      "additionalProperties": false,
+      "properties": {
+        "ran_at": {
+          "format": "date-time",
+          "title": "Ran At",
+          "type": "string"
+        },
+        "segmenter": {
+          "title": "Segmenter",
+          "type": "string"
+        },
+        "out_of_view": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "title": "Out Of View",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ran_at",
+        "segmenter"
+      ],
+      "title": "Calibration",
+      "type": "object"
+    },
+    "Completion": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "appears_in_work_area",
+            "leaves_work_area",
+            "coverage_change",
+            "manual"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "object": {
+          "title": "Object",
+          "type": "string"
+        },
+        "min_hold_s": {
+          "default": 1.0,
+          "minimum": 0,
+          "title": "Min Hold S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "object"
+      ],
+      "title": "Completion",
+      "type": "object"
+    },
+    "MadeBy": {
+      "additionalProperties": false,
+      "properties": {
+        "understanding": {
+          "title": "Understanding",
+          "type": "string"
+        },
+        "segmenter": {
+          "title": "Segmenter",
+          "type": "string"
+        },
+        "transcriber": {
+          "title": "Transcriber",
+          "type": "string"
+        },
+        "pipeline_version": {
+          "title": "Pipeline Version",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "understanding",
+        "segmenter",
+        "transcriber",
+        "pipeline_version",
+        "created_at"
+      ],
+      "title": "MadeBy",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "teacher_device": {
+          "enum": [
+            "glasses",
+            "phone"
+          ],
+          "title": "Teacher Device",
+          "type": "string"
+        },
+        "viewpoint": {
+          "enum": [
+            "first_person",
+            "third_person"
+          ],
+          "title": "Viewpoint",
+          "type": "string"
+        },
+        "authored": {
+          "enum": [
+            "hand_written",
+            "pipeline"
+          ],
+          "title": "Authored",
+          "type": "string"
+        },
+        "stand_in": {
+          "default": false,
+          "title": "Stand In",
+          "type": "boolean"
+        },
+        "recording": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecordingRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "made_by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MadeBy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "teacher_device",
+        "viewpoint",
+        "authored"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "RecordingRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Url"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "duration_s": {
+          "exclusiveMinimum": 0,
+          "title": "Duration S",
+          "type": "number"
+        },
+        "fps": {
+          "exclusiveMinimum": 0,
+          "title": "Fps",
+          "type": "number"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "duration_s",
+        "fps",
+        "width",
+        "height"
+      ],
+      "title": "RecordingRef",
+      "type": "object"
+    },
+    "Span": {
+      "additionalProperties": false,
+      "properties": {
+        "start_s": {
+          "minimum": 0,
+          "title": "Start S",
+          "type": "number"
+        },
+        "end_s": {
+          "title": "End S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start_s",
+        "end_s"
+      ],
+      "title": "Span",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "index": {
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "instruction": {
+          "title": "Instruction",
+          "type": "string"
+        },
+        "objects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Objects",
+          "type": "array"
+        },
+        "completion": {
+          "$ref": "#/$defs/Completion"
+        },
+        "span_model": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Span"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "wait_until": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WaitUntil"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "amount": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Amount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tips": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Tip"
+          },
+          "title": "Tips",
+          "type": "array"
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "index",
+        "title",
+        "instruction",
+        "objects",
+        "completion"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "Tip": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote"
+        },
+        "source": {
+          "enum": [
+            "speech",
+            "action"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "at_s": {
+          "minimum": 0,
+          "title": "At S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "text",
+        "source",
+        "at_s"
+      ],
+      "title": "Tip",
+      "type": "object"
+    },
+    "TrackedObject": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "prompt": {
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "work_area",
+            "ingredient",
+            "tool",
+            "container",
+            "hand"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "confusable_with": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Confusable With",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "prompt",
+        "role"
+      ],
+      "title": "TrackedObject",
+      "type": "object"
+    },
+    "TranscriptSegment": {
+      "additionalProperties": false,
+      "properties": {
+        "start_s": {
+          "minimum": 0,
+          "title": "Start S",
+          "type": "number"
+        },
+        "end_s": {
+          "title": "End S",
+          "type": "number"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "speaker": {
+          "default": "teacher",
+          "title": "Speaker",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start_s",
+        "end_s",
+        "text"
+      ],
+      "title": "TranscriptSegment",
+      "type": "object"
+    },
+    "WaitUntil": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "title": "Condition",
+          "type": "string"
+        },
+        "still_checkable": {
+          "title": "Still Checkable",
+          "type": "boolean"
+        },
+        "reference_frame_s": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Frame S"
+        },
+        "cue_not_yet": {
+          "title": "Cue Not Yet",
+          "type": "string"
+        }
+      },
+      "required": [
+        "condition",
+        "still_checkable",
+        "cue_not_yet"
+      ],
+      "title": "WaitUntil",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "objects": {
+      "items": {
+        "$ref": "#/$defs/TrackedObject"
+      },
+      "title": "Objects",
+      "type": "array"
+    },
+    "work_area_object": {
+      "title": "Work Area Object",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    },
+    "transcript": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TranscriptSegment"
+      },
+      "title": "Transcript",
+      "type": "array"
+    },
+    "calibration": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Calibration"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "provenance",
+    "objects",
+    "work_area_object",
+    "steps"
+  ],
+  "title": "Lesson",
+  "type": "object"
+}

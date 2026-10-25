@@ -1,0 +1,2 @@
+# One line per recording: filename, who, what happened, anything odd.
+# Names: tutorial_<task>_youtube_<videoid>.mp4, learner_<task>_<yyyymmdd>_standin-chest.mp4

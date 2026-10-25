@@ -1,0 +1,285 @@
+"""Lesson schema v1.
+
+A Lesson is one task, as a teacher did it, in a form every mode can read. It records how it was
+made (provenance) so downstream code knows which claims the recording supports.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from enum import StrEnum
+from typing import Literal, Self
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+SCHEMA_VERSION = "1"
+EM_DASH = "—"
+
+
+class Contract(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class Claim(StrEnum):
+    presence = "presence"
+    order = "order"
+    progress = "progress"
+    amount = "amount"
+    wait_until = "wait_until"
+
+
+COARSE_CLAIMS = frozenset({Claim.presence, Claim.order, Claim.progress})
+
+
+class Span(Contract):
+    start_s: float = Field(ge=0)
+    end_s: float
+
+    @model_validator(mode="after")
+    def _positive_length(self) -> Self:
+        if self.end_s <= self.start_s:
+            raise ValueError(f"end_s ({self.end_s}) must be after start_s ({self.start_s})")
+        return self
+
+
+class RecordingRef(Contract):
+    path: str
+    source_url: str | None = None
+    sha256: str
+    duration_s: float = Field(gt=0)
+    fps: float = Field(gt=0)
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+
+
+class MadeBy(Contract):
+    understanding: str
+    segmenter: str
+    transcriber: str
+    pipeline_version: str
+    created_at: datetime
+
+
+class Provenance(Contract):
+    teacher_device: Literal["glasses", "phone"]
+    viewpoint: Literal["first_person", "third_person"]
+    authored: Literal["hand_written", "pipeline"]
+    stand_in: bool = False
+    recording: RecordingRef | None = None
+    made_by: MadeBy | None = None
+
+    @model_validator(mode="after")
+    def _pipeline_has_sources(self) -> Self:
+        if self.authored == "pipeline":
+            if self.recording is None:
+                raise ValueError("a pipeline lesson needs a recording")
+            if self.made_by is None:
+                raise ValueError("a pipeline lesson needs made_by")
+        return self
+
+
+class TrackedObject(Contract):
+    id: str
+    prompt: str = Field(min_length=1)
+    role: Literal["work_area", "ingredient", "tool", "container", "hand"]
+    confusable_with: list[str] = []
+
+
+class Completion(Contract):
+    kind: Literal["appears_in_work_area", "leaves_work_area", "coverage_change", "manual"]
+    object: str
+    min_hold_s: float = Field(default=1.0, ge=0)
+
+
+class WaitUntil(Contract):
+    condition: str
+    still_checkable: bool
+    reference_frame_s: float | None = Field(default=None, ge=0)
+    cue_not_yet: str
+
+
+class Amount(Contract):
+    object: str
+    measure: Literal["work_area_fraction"] = "work_area_fraction"
+    teacher_value: float | None = Field(default=None, ge=0, le=1)
+    tolerance: float = Field(gt=0)
+
+
+class Tip(Contract):
+    text: str
+    quote: str | None = None
+    source: Literal["speech", "action"]
+    at_s: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _speech_is_quoted(self) -> Self:
+        if self.source == "speech" and not self.quote:
+            raise ValueError("a spoken tip needs the teacher's quote")
+        return self
+
+
+class Step(Contract):
+    id: str
+    index: int = Field(ge=0)
+    title: str
+    instruction: str
+    objects: list[str]
+    completion: Completion
+    span_model: Span | None = None
+    span: Span | None = None
+    wait_until: WaitUntil | None = None
+    amount: Amount | None = None
+    tips: list[Tip] = []
+    optional: bool = False
+
+    @property
+    def best_span(self) -> Span | None:
+        """The snapped span when there is one, otherwise the model's rough one."""
+        return self.span or self.span_model
+
+
+class TranscriptSegment(Contract):
+    start_s: float = Field(ge=0)
+    end_s: float
+    text: str
+    speaker: str = "teacher"
+
+
+class Calibration(Contract):
+    ran_at: datetime
+    segmenter: str
+    out_of_view: list[Span] = []
+
+
+class Lesson(Contract):
+    schema_version: Literal["1"] = SCHEMA_VERSION
+    id: str
+    title: str
+    provenance: Provenance
+    objects: list[TrackedObject]
+    work_area_object: str
+    steps: list[Step] = Field(min_length=1)
+    transcript: list[TranscriptSegment] = []
+    calibration: Calibration | None = None
+
+    def claims(self) -> frozenset[Claim]:
+        """What this recording lets downstream code judge. Amounts and "wait until" need the
+        teacher's own first-person view."""
+        p = self.provenance
+        if p.teacher_device == "glasses" and p.viewpoint == "first_person":
+            return frozenset(Claim)
+        return COARSE_CLAIMS
+
+    def object(self, object_id: str) -> TrackedObject:
+        return next(o for o in self.objects if o.id == object_id)
+
+    @model_validator(mode="after")
+    def _consistent(self) -> Self:
+        self._check_ids()
+        self._check_references()
+        self._check_steps()
+        self._check_claims()
+        self._check_times()
+        self._check_text()
+        return self
+
+    def _check_ids(self) -> None:
+        for kind, ids in (
+            ("object", [o.id for o in self.objects]),
+            ("step", [s.id for s in self.steps]),
+        ):
+            seen: set[str] = set()
+            for i in ids:
+                if i in seen:
+                    raise ValueError(f"duplicate {kind} id: {i!r}")
+                seen.add(i)
+
+    def _check_references(self) -> None:
+        known = {o.id for o in self.objects}
+
+        def need(ref: str, where: str) -> None:
+            if ref not in known:
+                raise ValueError(f"{where} refers to unknown object {ref!r}")
+
+        need(self.work_area_object, "work_area_object")
+        if self.object(self.work_area_object).role != "work_area":
+            raise ValueError(f"work_area_object {self.work_area_object!r} must have role work_area")
+        for o in self.objects:
+            for other in o.confusable_with:
+                need(other, f"object {o.id!r} confusable_with")
+        for s in self.steps:
+            for ref in s.objects:
+                need(ref, f"step {s.id!r} objects")
+            need(s.completion.object, f"step {s.id!r} completion")
+            if s.amount:
+                need(s.amount.object, f"step {s.id!r} amount")
+
+    def _check_steps(self) -> None:
+        previous: Step | None = None
+        for position, s in enumerate(self.steps):
+            if s.index != position:
+                raise ValueError(f"step {s.id!r} has index {s.index}, expected {position}")
+            span = s.best_span
+            if previous and span and (prev := previous.best_span):
+                if span.start_s <= prev.start_s:
+                    raise ValueError(
+                        f"steps out of order: {s.id!r} starts at {span.start_s}s, "
+                        f"not after {previous.id!r} at {prev.start_s}s"
+                    )
+            previous = s
+
+    def _check_claims(self) -> None:
+        allowed = self.claims()
+        for s in self.steps:
+            if s.amount and Claim.amount not in allowed:
+                raise ValueError(
+                    f"step {s.id!r} has an amount, but this recording only supports "
+                    f"{", ".join(sorted(allowed))} (amounts need a first-person glasses teacher)"
+                )
+            if s.wait_until and Claim.wait_until not in allowed:
+                raise ValueError(
+                    f"step {s.id!r} has a wait_until, but this recording only supports "
+                    f"{", ".join(sorted(allowed))} (wait_until needs a first-person glasses teacher)"
+                )
+
+    def _check_times(self) -> None:
+        recording = self.provenance.recording
+        if recording is None:
+            return
+        limit = recording.duration_s
+
+        def within(t: float, where: str) -> None:
+            if t > limit:
+                raise ValueError(f"{where} at {t}s is past the end of the recording ({limit}s)")
+
+        for s in self.steps:
+            for name, span in (("span", s.span), ("span_model", s.span_model)):
+                if span:
+                    within(span.end_s, f"step {s.id!r} {name}")
+            for tip in s.tips:
+                within(tip.at_s, f"step {s.id!r} tip")
+            if s.wait_until and s.wait_until.reference_frame_s is not None:
+                within(s.wait_until.reference_frame_s, f"step {s.id!r} wait_until")
+        for seg in self.transcript:
+            within(seg.end_s, "transcript segment")
+        if self.calibration:
+            for span in self.calibration.out_of_view:
+                within(span.end_s, "out_of_view span")
+
+    def _check_text(self) -> None:
+        """Words people hear or read never use em dashes."""
+        texts = [("title", self.title)]
+        for s in self.steps:
+            texts += [
+                (f"step {s.id!r} title", s.title),
+                (f"step {s.id!r} instruction", s.instruction),
+            ]
+            texts += [(f"step {s.id!r} tip", t.text) for t in s.tips]
+            if s.wait_until:
+                texts += [
+                    (f"step {s.id!r} condition", s.wait_until.condition),
+                    (f"step {s.id!r} cue_not_yet", s.wait_until.cue_not_yet),
+                ]
+        for where, text in texts:
+            if EM_DASH in text:
+                raise ValueError(f"{where} contains an em dash: {text!r}")

@@ -1,0 +1,35 @@
+[project]
+name = "instep"
+version = "0.1.0"
+description = "Record once, anyone can learn it."
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26",
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["instep"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

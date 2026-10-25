@@ -1,0 +1,73 @@
+{
+  "schema_version": "1",
+  "id": "tadka-hand-min",
+  "title": "Tadka for dal",
+  "provenance": {
+    "teacher_device": "glasses",
+    "viewpoint": "first_person",
+    "authored": "hand_written",
+    "stand_in": false,
+    "recording": null,
+    "made_by": null
+  },
+  "objects": [
+    {"id": "pan", "prompt": "small steel pan", "role": "work_area", "confusable_with": []},
+    {"id": "mustard_seeds", "prompt": "mustard seeds", "role": "ingredient", "confusable_with": ["cumin_seeds"]},
+    {"id": "cumin_seeds", "prompt": "cumin seeds", "role": "ingredient", "confusable_with": ["mustard_seeds"]},
+    {"id": "curry_leaves", "prompt": "curry leaves", "role": "ingredient", "confusable_with": []}
+  ],
+  "work_area_object": "pan",
+  "steps": [
+    {
+      "id": "add_mustard",
+      "index": 0,
+      "title": "Add mustard seeds",
+      "instruction": "Put a spoonful of mustard seeds into the hot oil.",
+      "objects": ["mustard_seeds", "pan"],
+      "completion": {"kind": "appears_in_work_area", "object": "mustard_seeds", "min_hold_s": 1.0},
+      "span_model": null,
+      "span": {"start_s": 10.0, "end_s": 14.0},
+      "wait_until": {
+        "condition": "the seeds start to pop",
+        "still_checkable": true,
+        "reference_frame_s": 22.0,
+        "cue_not_yet": "Not yet. Maa waited until the seeds started to pop."
+      },
+      "amount": {"object": "mustard_seeds", "measure": "work_area_fraction", "teacher_value": 0.08, "tolerance": 0.35},
+      "tips": [
+        {"text": "Only a spoonful, not more.", "quote": null, "source": "action", "at_s": 11.0}
+      ],
+      "optional": false
+    },
+    {
+      "id": "add_cumin",
+      "index": 1,
+      "title": "Add cumin seeds",
+      "instruction": "Add a pinch of cumin seeds.",
+      "objects": ["cumin_seeds", "pan"],
+      "completion": {"kind": "appears_in_work_area", "object": "cumin_seeds", "min_hold_s": 1.0},
+      "span_model": null,
+      "span": {"start_s": 24.0, "end_s": 27.0},
+      "wait_until": null,
+      "amount": null,
+      "tips": [],
+      "optional": true
+    },
+    {
+      "id": "add_curry_leaves",
+      "index": 2,
+      "title": "Add curry leaves",
+      "instruction": "Drop in the curry leaves and step back, they splutter.",
+      "objects": ["curry_leaves", "pan"],
+      "completion": {"kind": "appears_in_work_area", "object": "curry_leaves", "min_hold_s": 1.0},
+      "span_model": null,
+      "span": {"start_s": 28.0, "end_s": 33.0},
+      "wait_until": null,
+      "amount": null,
+      "tips": [],
+      "optional": false
+    }
+  ],
+  "transcript": [],
+  "calibration": null
+}

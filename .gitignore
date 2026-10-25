@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.venv/
+.cache/
+runs/
+__pycache__/
+*.egg-info/
+data/recordings/*.mp4
+data/recordings/*.mov
+*.webm
+*.mkv
+.DS_Store
+.claude/settings.local.json

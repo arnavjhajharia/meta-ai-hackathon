@@ -1,0 +1,73 @@
+{
+  "schema_version": "1",
+  "id": "tadka-youtube-min",
+  "title": "Tadka for dal",
+  "provenance": {
+    "teacher_device": "phone",
+    "viewpoint": "third_person",
+    "authored": "pipeline",
+    "stand_in": false,
+    "recording": {
+      "path": "data/recordings/tutorial_tadka_youtube_abc123.mp4",
+      "source_url": "https://www.youtube.com/watch?v=abc123",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "duration_s": 60.0,
+      "fps": 30.0,
+      "width": 1280,
+      "height": 720
+    },
+    "made_by": {
+      "understanding": "fake",
+      "segmenter": "fake",
+      "transcriber": "fake",
+      "pipeline_version": "0.1.0",
+      "created_at": "2026-10-26T12:00:00Z"
+    }
+  },
+  "objects": [
+    {"id": "pan", "prompt": "small steel pan", "role": "work_area", "confusable_with": []},
+    {"id": "mustard_seeds", "prompt": "mustard seeds", "role": "ingredient", "confusable_with": []},
+    {"id": "curry_leaves", "prompt": "curry leaves", "role": "ingredient", "confusable_with": []}
+  ],
+  "work_area_object": "pan",
+  "steps": [
+    {
+      "id": "add_mustard",
+      "index": 0,
+      "title": "Add mustard seeds",
+      "instruction": "Add the mustard seeds to the hot oil.",
+      "objects": ["mustard_seeds", "pan"],
+      "completion": {"kind": "appears_in_work_area", "object": "mustard_seeds", "min_hold_s": 1.0},
+      "span_model": {"start_s": 8.0, "end_s": 16.0},
+      "span": {"start_s": 9.5, "end_s": 13.0},
+      "wait_until": null,
+      "amount": null,
+      "tips": [
+        {"text": "Wait till it starts popping.", "quote": "wait till it starts popping", "source": "speech", "at_s": 14.0}
+      ],
+      "optional": false
+    },
+    {
+      "id": "add_curry_leaves",
+      "index": 1,
+      "title": "Add curry leaves",
+      "instruction": "Add the curry leaves.",
+      "objects": ["curry_leaves", "pan"],
+      "completion": {"kind": "appears_in_work_area", "object": "curry_leaves", "min_hold_s": 1.0},
+      "span_model": {"start_s": 20.0, "end_s": 30.0},
+      "span": {"start_s": 21.0, "end_s": 26.0},
+      "wait_until": null,
+      "amount": null,
+      "tips": [],
+      "optional": false
+    }
+  ],
+  "transcript": [
+    {"start_s": 13.5, "end_s": 15.0, "text": "wait till it starts popping", "speaker": "teacher"}
+  ],
+  "calibration": {
+    "ran_at": "2026-10-26T12:05:00Z",
+    "segmenter": "fake",
+    "out_of_view": [{"start_s": 40.0, "end_s": 42.0}]
+  }
+}

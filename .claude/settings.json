@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python -m pytest:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(pytest:*)",
+      "Bash(ruff:*)",
+      "Bash(ffprobe:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(modal app list)",
+      "Bash(modal app stop:*)",
+      "Bash(modal app logs:*)",
+      "Read(data/**)",
+      "Read(runs/**)"
+    ],
+    "ask": [
+      "Bash(modal deploy:*)",
+      "Bash(modal run:*)",
+      "Bash(modal secret:*)",
+      "Bash(pip install:*)",
+      "Bash(git push:*)",
+      "Edit(data/labels/**)",
+      "Write(data/labels/**)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(rm -rf:*)",
+      "Bash(pip install --break-system-packages:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format_py.sh" }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop_gate.sh", "timeout": 240 }]
+      }
+    ]
+  }
+}
