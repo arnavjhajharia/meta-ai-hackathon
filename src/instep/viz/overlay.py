@@ -30,7 +30,8 @@ def paint(image: np.ndarray, lesson: Lesson, segmenter: Segmenter) -> tuple[np.n
     colour.setdefault("hand", (255, 255, 255))
     out = image.astype(np.float32).copy()
     found = []
-    for d in sorted(segmenter.segment(image, prompts), key=lambda d: d.score):
+    solo = [o.prompt for o in lesson.objects if o.role == "work_area"] + ["hand"]
+    for d in sorted(segmenter.segment(image, prompts, solo=solo), key=lambda d: d.score):
         c = np.array(colour.get(d.prompt, (255, 255, 0)), dtype=np.float32)
         if d.mask is not None:
             out[d.mask] = out[d.mask] * 0.45 + c * 0.55

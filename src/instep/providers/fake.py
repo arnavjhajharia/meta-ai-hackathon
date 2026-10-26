@@ -46,7 +46,9 @@ class ColourSegmenter:
     tolerance: int = 30
     name: str = "fake-colour"
 
-    def segment(self, image: np.ndarray, prompts: list[str]) -> list[Detection]:
+    def segment(
+        self, image: np.ndarray, prompts: list[str], solo: list[str] | None = None
+    ) -> list[Detection]:
         out = []
         for p in prompts:
             if p not in self.colours:

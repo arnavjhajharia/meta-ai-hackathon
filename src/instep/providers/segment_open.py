@@ -58,15 +58,33 @@ class GdinoSam2:
             self._models["sam"] = Sam2Model.from_pretrained(sam).to(dev).eval()
         self._models["dev"] = dev
 
-    def segment(self, image: np.ndarray, prompts: list[str]) -> list[Detection]:
-        import torch
+    def segment(
+        self, image: np.ndarray, prompts: list[str], solo: list[str] | None = None
+    ) -> list[Detection]:
+        """``solo`` prompts get their own detector pass: with many phrases in one pass Grounding
+        DINO often gives a box the wrong phrase, and the work area must not be mislabelled."""
         from PIL import Image
 
         if not prompts:
             return []
         self._load()
-        m = self._models
         pil = Image.fromarray(image)
+        solo = [p for p in (solo or []) if p in prompts]
+        found: list[Detection] = []
+        for p in solo:
+            found += self._detect(pil, [p])
+        rest = [p for p in prompts if p not in solo]
+        if rest:
+            claimed = [d.box for d in found]
+            found += [
+                d for d in self._detect(pil, rest) if all(_iou(d.box, c) < 0.7 for c in claimed)
+            ]
+        return self._masks(pil, found)
+
+    def _detect(self, pil, prompts: list[str]) -> list[Detection]:
+        import torch
+
+        m = self._models
         phrases = [_phrase(p) for p in prompts]
         inputs = m["dproc"](images=pil, text=[phrases], return_tensors="pt").to(m["dev"])
         with torch.no_grad():
@@ -87,7 +105,12 @@ class GdinoSam2:
             if prompt is None:
                 continue
             found.append(Detection(prompt=prompt, score=float(score), box=tuple(box), mask=None))
-        found = _top_per_prompt(found, self.max_per_prompt)
+        return _top_per_prompt(found, self.max_per_prompt)
+
+    def _masks(self, pil, found: list[Detection]) -> list[Detection]:
+        import torch
+
+        m = self._models
         if self.with_masks and found:
             boxes = [[list(d.box) for d in found]]
             sin = m["sproc"](images=pil, input_boxes=boxes, return_tensors="pt").to(m["dev"])
@@ -145,7 +168,10 @@ class Sam3Local:
     name: str = "sam3"
     _models: dict = field(default_factory=dict, repr=False)
 
-    def segment(self, image: np.ndarray, prompts: list[str]) -> list[Detection]:
+    def segment(
+        self, image: np.ndarray, prompts: list[str], solo: list[str] | None = None
+    ) -> list[Detection]:
+        """SAM 3 grounds one concept per pass already, so ``solo`` changes nothing."""
         import torch
         from PIL import Image
         from transformers import Sam3Model, Sam3Processor

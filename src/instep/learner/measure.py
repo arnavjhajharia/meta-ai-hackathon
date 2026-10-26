@@ -59,10 +59,15 @@ class Measurer:
         ps = [o.prompt for o in self.lesson.objects]
         return ps + ([HAND_PROMPT] if HAND_PROMPT not in ps else [])
 
+    def solo(self) -> list[str]:
+        return [o.prompt for o in self.lesson.objects if o.role == "work_area"] + [HAND_PROMPT]
+
     def measure(self, t_s: float, image: np.ndarray) -> FrameMeasure:
         h, w = image.shape[:2]
         dets = [
-            d for d in self.segmenter.segment(image, self.prompts()) if d.score >= self.min_score
+            d
+            for d in self.segmenter.segment(image, self.prompts(), solo=self.solo())
+            if d.score >= self.min_score
         ]
         by_prompt: dict[str, list[Detection]] = {}
         for d in dets:
@@ -172,6 +177,7 @@ def measure_clip(
         segmenter=segmenter.name,
         fps=fps,
         width=width,
+        solo=True,
         v=3,
     )
 

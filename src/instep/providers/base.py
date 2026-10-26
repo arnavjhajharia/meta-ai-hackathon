@@ -135,7 +135,11 @@ class Detection:
 class Segmenter(Protocol):
     name: str
 
-    def segment(self, image: np.ndarray, prompts: list[str]) -> list[Detection]: ...
+    def segment(
+        self, image: np.ndarray, prompts: list[str], solo: list[str] | None = None
+    ) -> list[Detection]:
+        """``solo``: prompts whose labels must be reliable (work areas, hands)."""
+        ...
 
 
 # ---------- still judgement (Claude today, Muse Spark later) ----------
