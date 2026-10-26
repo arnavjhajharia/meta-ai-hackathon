@@ -7,6 +7,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+MODELS = Path(os.environ.get("INSTEP_MODELS", Path.home() / ".cache" / "instep-models"))
+
+
+def model_path(repo: str) -> str:
+    """A local copy of a Hugging Face repo if we downloaded one, else the repo id."""
+    local = MODELS / repo
+    if local.exists() and any(local.glob("*.safetensors")):
+        return str(local)
+    return repo
 
 
 def load_env() -> None:

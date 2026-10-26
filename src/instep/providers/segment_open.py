@@ -45,14 +45,17 @@ class GdinoSam2:
             Sam2Processor,
         )
 
+        from instep.config import model_path
+
         dev = _device()
-        self._models["dproc"] = AutoProcessor.from_pretrained(self.detector_id)
+        det, sam = model_path(self.detector_id), model_path(self.sam_id)
+        self._models["dproc"] = AutoProcessor.from_pretrained(det)
         self._models["det"] = (
-            AutoModelForZeroShotObjectDetection.from_pretrained(self.detector_id).to(dev).eval()
+            AutoModelForZeroShotObjectDetection.from_pretrained(det).to(dev).eval()
         )
         if self.with_masks:
-            self._models["sproc"] = Sam2Processor.from_pretrained(self.sam_id)
-            self._models["sam"] = Sam2Model.from_pretrained(self.sam_id).to(dev).eval()
+            self._models["sproc"] = Sam2Processor.from_pretrained(sam)
+            self._models["sam"] = Sam2Model.from_pretrained(sam).to(dev).eval()
         self._models["dev"] = dev
 
     def segment(self, image: np.ndarray, prompts: list[str]) -> list[Detection]:

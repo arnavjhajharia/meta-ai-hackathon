@@ -22,9 +22,11 @@ class MlxWhisper:
     def _run(self, media_path: Path) -> dict:
         import mlx_whisper
 
+        from instep.config import model_path
+
         result = mlx_whisper.transcribe(
             str(media_path),
-            path_or_hf_repo=self.model,
+            path_or_hf_repo=model_path(self.model),
             word_timestamps=True,
             condition_on_previous_text=False,  # fewer runaway repetitions on music-heavy videos
         )
