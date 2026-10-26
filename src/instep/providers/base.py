@@ -64,7 +64,7 @@ class DraftStep(BaseModel):
     end_s: float
     objects: list[str]
     completion_kind: Literal[
-        "appears_in_work_area", "leaves_work_area", "coverage_change", "end_state"
+        "appears_in_work_area", "leaves_work_area", "coverage_change", "end_state", "manual"
     ]
     completion_object: str | None
     end_state: str

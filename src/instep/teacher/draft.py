@@ -189,10 +189,11 @@ def to_lesson(
 
         kind = d.completion_kind
         obj = _slug(d.completion_object) if d.completion_object else None
-        if kind != "end_state" and (obj is None or obj not in objects):
+        object_kind = kind not in ("end_state", "manual")
+        if object_kind and (obj is None or obj not in objects):
             issues.append(f"step {sid!r} {kind} without a known object; now end_state")
             kind, obj = "end_state", None
-        if kind == "end_state":
+        if not object_kind:
             obj = None
         if obj and obj not in refs:
             refs.append(obj)
