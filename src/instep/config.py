@@ -13,7 +13,7 @@ MODELS = Path(os.environ.get("INSTEP_MODELS", Path.home() / ".cache" / "instep-m
 def model_path(repo: str) -> str:
     """A local copy of a Hugging Face repo if we downloaded one, else the repo id."""
     local = MODELS / repo
-    if local.exists() and any(local.glob("*.safetensors")):
+    if (local / ".complete").exists():  # written after a verified download
         return str(local)
     return repo
 

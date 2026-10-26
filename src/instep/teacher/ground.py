@@ -24,14 +24,23 @@ def find_quote(quote: str, transcript: Transcript | None) -> QuoteMatch:
         return QuoteMatch(0.0, None)
     q = _norm(quote)
     segs = transcript.segments
+
+    def score(text: str) -> float:
+        t = _norm(text)
+        return fuzz.partial_ratio(q, t) if len(q) <= len(t) + 5 else 0.0
+
     best = QuoteMatch(0.0, None)
-    for i, s in enumerate(segs):
-        for text in (s.text, s.text + " " + segs[i + 1].text if i + 1 < len(segs) else None):
-            if text is None:
-                continue
-            score = fuzz.partial_ratio(q, _norm(text)) if len(q) <= len(text) + 5 else 0.0
-            if score > best.score:
-                best = QuoteMatch(score, s.start_s)
+    for s in segs:
+        sc = score(s.text)
+        if sc > best.score:
+            best = QuoteMatch(sc, s.start_s)
+    if best.score >= QUOTE_MATCH:
+        return best
+    # only when no single segment holds it: a sentence straddling a boundary
+    for a, b in zip(segs, segs[1:], strict=False):
+        sc = score(a.text + " " + b.text)
+        if sc > best.score:
+            best = QuoteMatch(sc, a.start_s)
     return best
 
 

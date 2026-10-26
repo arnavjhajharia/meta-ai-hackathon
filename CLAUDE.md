@@ -171,3 +171,16 @@ where possible ("Not yet. Maa waited until the seeds started to pop."). Never us
 - Lint: `.venv/bin/ruff check . && .venv/bin/ruff format --check .`
 - Regenerate the Lesson JSON Schema after changing `src/instep/lesson/schema.py`:
   `.venv/bin/python -m instep.lesson.io` (a test fails if `schemas/lesson.v1.json` is stale)
+- Tutorial to Lesson (A'B, one Claude call, cached): `.venv/bin/python -m instep.cli lesson
+  data/recordings/<tutorial>.mp4 [--variant draft_v1:2:120:512:tx] [--no-calibrate] [--publish]`
+  (variant = prompt:every_s:max_frames:width:tx|notx). Output in `runs/lessons/<stem>/<variant>/`.
+- Without the API: `instep.cli prepare <tutorial>` writes transcript, cuts and frame grids to
+  `runs/prep/<stem>/`; a drafter (e.g. a subagent following `runs/prep/BRIEF.md`) writes a
+  DraftLesson JSON; `instep.cli ingest <tutorial> <draft.json> --by <who>` turns it into a Lesson.
+- Learner attempt against a Lesson: `.venv/bin/python -m instep.cli learn <attempt>.mp4
+  <lesson.json> [--no-judge]` (events in `runs/learn/`).
+- Frame grids for looking: `.venv/bin/python -m instep.cli grid <video> --every 2`.
+- Simulator: `.venv/bin/python -m instep.sim.server`, then http://127.0.0.1:8765
+  (`?lesson=<id>&clip=<learner file>` to open directly).
+- Models are read from `~/.cache/instep-models/<repo>` when present (plain curl downloads, marked with a `.complete` file;
+  the Hugging Face client stalled on this network). Spend log: `.cache/spend.jsonl`.

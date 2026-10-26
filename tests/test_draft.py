@@ -131,3 +131,17 @@ def test_missing_work_area_is_added() -> None:
     assert lesson.object("steel_tray").role == "work_area"
     assert lesson.object("paper").role == "container"
     assert any("not among objects" in i for i in issues)
+
+
+def test_quote_time_prefers_the_segment_that_holds_it() -> None:
+    t = Transcript(
+        language="en",
+        segments=[
+            Segment(start_s=8.9, end_s=18.9, text="please read my disclaimer below"),
+            Segment(
+                start_s=18.9, end_s=25.0, text="there may be a fracture that you don't know about"
+            ),
+        ],
+    )
+    assert find_quote("there may be a fracture that you don't know about", t).start_s == 18.9
+    assert find_quote("disclaimer below there may be", t).start_s == 8.9
