@@ -164,45 +164,68 @@ def _iou(a: tuple, b: tuple) -> float:
 @dataclass
 class Sam3Local:
     model_id: str = "facebook/sam3"
-    threshold: float = 0.5
+    threshold: float = 0.4
+    max_per_prompt: int = 4
     name: str = "sam3"
     _models: dict = field(default_factory=dict, repr=False)
+
+    def _load(self) -> None:
+        if self._models:
+            return
+        from transformers import Sam3Model, Sam3Processor
+
+        from instep.config import model_path
+
+        dev = _device()
+        path = model_path(self.model_id)
+        self._models["proc"] = Sam3Processor.from_pretrained(path)
+        self._models["model"] = Sam3Model.from_pretrained(path).to(dev).eval()
+        self._models["dev"] = dev
+        self._models["text"] = {}
 
     def segment(
         self, image: np.ndarray, prompts: list[str], solo: list[str] | None = None
     ) -> list[Detection]:
-        """SAM 3 grounds one concept per pass already, so ``solo`` changes nothing."""
+        """SAM 3 grounds one concept per pass already, so ``solo`` changes nothing. The image is
+        encoded once and every prompt queries the same embedding."""
         import torch
         from PIL import Image
-        from transformers import Sam3Model, Sam3Processor
 
-        if not self._models:
-            dev = _device()
-            self._models["proc"] = Sam3Processor.from_pretrained(self.model_id)
-            self._models["model"] = Sam3Model.from_pretrained(self.model_id).to(dev).eval()
-            self._models["dev"] = dev
+        if not prompts:
+            return []
+        self._load()
         m = self._models
         pil = Image.fromarray(image)
-        found = []
-        for prompt in prompts:
-            inputs = m["proc"](images=pil, text=_phrase(prompt), return_tensors="pt").to(m["dev"])
-            with torch.no_grad():
-                out = m["model"](**inputs)
-            r = m["proc"].post_process_instance_segmentation(
-                out,
-                threshold=self.threshold,
-                mask_threshold=0.5,
-                target_sizes=inputs.get("original_sizes").tolist(),
-            )[0]
-            for mask, box, score in zip(
-                r["masks"], r["boxes"].tolist(), r["scores"].tolist(), strict=False
-            ):
-                found.append(
-                    Detection(
-                        prompt=prompt,
-                        score=float(score),
-                        box=tuple(box),
-                        mask=mask.cpu().numpy().astype(bool),
+        img = m["proc"](images=pil, return_tensors="pt").to(m["dev"])
+        sizes = img["original_sizes"].tolist()
+        found: list[Detection] = []
+        with torch.no_grad():
+            vision = m["model"].get_vision_features(pixel_values=img["pixel_values"])
+            for prompt in dict.fromkeys(prompts):
+                if prompt not in m["text"]:
+                    m["text"][prompt] = m["proc"](text=_phrase(prompt), return_tensors="pt").to(
+                        m["dev"]
                     )
+                t = m["text"][prompt]
+                out = m["model"](
+                    vision_embeds=vision,
+                    input_ids=t["input_ids"],
+                    attention_mask=t["attention_mask"],
                 )
+                r = m["proc"].post_process_instance_segmentation(
+                    out, threshold=self.threshold, mask_threshold=0.5, target_sizes=sizes
+                )[0]
+                ranked = sorted(
+                    zip(r["masks"], r["boxes"].tolist(), r["scores"].tolist(), strict=False),
+                    key=lambda x: -x[2],
+                )[: self.max_per_prompt]
+                for mask, box, score in ranked:
+                    found.append(
+                        Detection(
+                            prompt=prompt,
+                            score=float(score),
+                            box=tuple(box),
+                            mask=mask.cpu().numpy().astype(bool),
+                        )
+                    )
         return found

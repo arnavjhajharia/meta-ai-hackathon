@@ -167,6 +167,22 @@ def learn(clip: Path, lesson_path: Path, use_judge: bool = True, cfg: Config | N
     out = RUNS / "learn" / clip.stem / lesson.id
     out.mkdir(parents=True, exist_ok=True)
     (out / "events.json").write_text(json.dumps([e.model_dump() for e in machine.events], indent=2))
+    from instep.viz.timeline import render
+
+    labels_path = ROOT / "data" / "labels" / f"{clip.stem}.json"
+    labels = None
+    if labels_path.exists():
+        from instep.eval.labels import load_labels
+
+        labels = load_labels(labels_path).rows
+    render(
+        lesson,
+        measures.frames,
+        machine.events,
+        out / "timeline.png",
+        labels=labels,
+        title=f"{clip.name}  vs  {lesson.id}  ({measures.segmenter})",
+    )
     return machine.events, measures, machine
 
 
