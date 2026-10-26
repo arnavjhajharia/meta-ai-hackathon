@@ -109,6 +109,16 @@ def _clean(text: str) -> str:
     return text.replace(EM_DASH, ", ").replace(" ,", ",").strip()
 
 
+def _area(raw: str | None, objects: dict, default: str, sid: str, issues: list[str]) -> str | None:
+    if not raw:
+        return None
+    area = _slug(raw)
+    if area not in objects:
+        issues.append(f"step {sid!r} work area {area!r} unknown; using the main one")
+        return None
+    return None if area == default else area
+
+
 def to_lesson(
     draft: DraftLesson,
     recording: RecordingRef,
@@ -142,9 +152,12 @@ def to_lesson(
         )
     if objects[work_area].role != "work_area":
         objects[work_area].role = "work_area"
+    step_areas = {_slug(s.work_area) for s in draft.steps if s.work_area}
     for oid, o in objects.items():
-        if o.role == "work_area" and oid != work_area:
-            issues.append(f"second work area {oid!r} demoted to container")
+        if oid in step_areas and o.role != "work_area":
+            o.role = "work_area"
+        if o.role == "work_area" and oid != work_area and oid not in step_areas:
+            issues.append(f"second work area {oid!r} used by no step; demoted to container")
             o.role = "container"
 
     steps: list[Step] = []
@@ -224,6 +237,8 @@ def to_lesson(
                 span_model=Span(start_s=start, end_s=end),
                 tips=tips,
                 optional=d.optional,
+                wait_s=d.wait_s if d.wait_s and d.wait_s > 0 else None,
+                work_area=_area(d.work_area, objects, work_area, sid, issues),
             )
         )
 

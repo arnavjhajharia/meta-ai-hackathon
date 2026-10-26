@@ -22,6 +22,10 @@ or another language), and frames labelled with their time in seconds.
 - start_s: when the hands begin that action. end_s: when the result is visible and the hands
   move on. Use the frame times; the transcript tells you what is happening, the frames tell you
   when. Steps must be in time order and must not overlap.
+- wait_s: if the teacher says to wait a stated time after this step before the next one
+  ("leave it for 5 minutes", "boil for 2 minutes"), the seconds; otherwise null. Only stated
+  times, never your own estimate. A wait for something to happen without a stated time
+  ("until it foams") is not a wait_s: put the teacher's words in a tip instead.
 - Mark a step optional only if the teacher says it is optional or a matter of taste.
 
 ## Things to watch (objects)

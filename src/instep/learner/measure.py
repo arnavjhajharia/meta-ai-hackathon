@@ -34,6 +34,10 @@ class FrameMeasure(BaseModel):
     objects: dict[str, ObjectSeen]  # by object id
     hands_in_work_area: bool
     motion: float  # mean abs change in the work area since the previous frame, 0..1
+    areas: dict[str, FrameMeasure] = {}  # the same, relative to each other work area
+
+    def for_area(self, area_id: str | None) -> FrameMeasure:
+        return self.areas.get(area_id, self) if area_id else self
 
 
 class ClipMeasures(BaseModel):
@@ -64,13 +68,20 @@ class Measurer:
         for d in dets:
             by_prompt.setdefault(d.prompt, []).append(d)
 
-        wa = self.lesson.object(self.lesson.work_area_object)
+        diff = self._diff(image)
+        main = self._view(t_s, self.lesson.work_area_object, by_prompt, w, h, diff)
+        for o in self.lesson.objects:
+            if o.role == "work_area" and o.id != self.lesson.work_area_object:
+                main.areas[o.id] = self._view(t_s, o.id, by_prompt, w, h, diff)
+        return main
+
+    def _view(self, t_s, area_id: str, by_prompt, w: int, h: int, diff) -> FrameMeasure:
+        """Everything measured relative to one work area."""
+        wa = self.lesson.object(area_id)
         wa_dets = sorted(by_prompt.get(wa.prompt, []), key=lambda d: -d.score)
         region = _pad(wa_dets[0].box, w, h) if wa_dets else None
-
         objects: dict[str, ObjectSeen] = {}
         for o in self.lesson.objects:
-            mine = by_prompt.get(o.prompt, [])
             if o.id == wa.id:
                 objects[o.id] = ObjectSeen(
                     score=wa_dets[0].score if wa_dets else 0.0,
@@ -78,10 +89,8 @@ class Measurer:
                     coverage=1.0,
                 )
                 continue
-            objects[o.id] = _seen(mine, region, w, h)
-
+            objects[o.id] = _seen(by_prompt.get(o.prompt, []), region, w, h)
         hands = _seen(by_prompt.get(HAND_PROMPT, []), region, w, h)
-        motion = self._motion(image, region)
         return FrameMeasure(
             t_s=round(t_s, 3),
             work_area_visible=region is not None,
@@ -90,21 +99,26 @@ class Measurer:
             else None,
             objects=objects,
             hands_in_work_area=hands.in_work_area,
-            motion=motion,
+            motion=_motion_in(diff, region),
         )
 
-    def _motion(self, image: np.ndarray, region: tuple | None) -> float:
+    def _diff(self, image: np.ndarray) -> np.ndarray | None:
         small = image[::8, ::8].mean(axis=-1).astype(np.float32) / 255.0
         prev, self._prev = self._prev, small
         if prev is None or prev.shape != small.shape:
-            return 0.0
-        diff = np.abs(small - prev)
-        if region is not None:
-            x0, y0, x1, y1 = (int(v / 8) for v in region)
-            crop = diff[y0 : max(y1, y0 + 1), x0 : max(x1, x0 + 1)]
-            if crop.size:
-                diff = crop
-        return round(float(diff.mean()), 4)
+            return None
+        return np.abs(small - prev)
+
+
+def _motion_in(diff: np.ndarray | None, region: tuple | None) -> float:
+    if diff is None:
+        return 0.0
+    if region is not None:
+        x0, y0, x1, y1 = (int(v / 8) for v in region)
+        crop = diff[y0 : max(y1, y0 + 1), x0 : max(x1, x0 + 1)]
+        if crop.size:
+            diff = crop
+    return round(float(diff.mean()), 4)
 
 
 def _pad(box: tuple, w: int, h: int) -> tuple[float, float, float, float]:
@@ -158,7 +172,7 @@ def measure_clip(
         segmenter=segmenter.name,
         fps=fps,
         width=width,
-        v=2,
+        v=3,
     )
 
     def run() -> dict:

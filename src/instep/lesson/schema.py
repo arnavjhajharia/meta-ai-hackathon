@@ -155,6 +155,15 @@ class Step(Contract):
     amount: Amount | None = None
     tips: list[Tip] = []
     optional: bool = False
+    # a timed wait the teacher states ("leave the glue for 5 minutes"): needs only a clock, so
+    # every mode may use it, unlike wait_until which needs the teacher's own viewpoint
+    wait_s: float | None = Field(default=None, gt=0)
+    # where this step happens when it is not the lesson's main work area (the wok before the
+    # pan); must be an object with role work_area
+    work_area: str | None = None
+
+    def area(self, lesson_default: str) -> str:
+        return self.work_area or lesson_default
 
     @property
     def best_span(self) -> Span | None:
@@ -239,6 +248,10 @@ class Lesson(Contract):
                 need(ref, f"step {s.id!r} objects")
             if s.completion.object:
                 need(s.completion.object, f"step {s.id!r} completion")
+            if s.work_area:
+                need(s.work_area, f"step {s.id!r} work_area")
+                if self.object(s.work_area).role != "work_area":
+                    raise ValueError(f"step {s.id!r} work_area {s.work_area!r} is not a work area")
             if s.amount:
                 need(s.amount.object, f"step {s.id!r} amount")
 

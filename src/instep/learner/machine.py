@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from instep.learner.events import NEEDS_CLAIM, Event
+from instep.learner.events import Event, needs_claim
 from instep.learner.measure import FrameMeasure
 from instep.lesson.schema import Lesson, Step
 from instep.providers.base import StillJudge
@@ -32,6 +32,7 @@ class Tuning:
     done_confidence: float = 0.6
     stall_min_s: float = 25.0
     stall_factor: float = 2.5  # times the tutorial step length
+    not_yet_every_s: float = 15.0  # repeat a timed-wait reminder at most this often
 
 
 @dataclass
@@ -68,6 +69,8 @@ class StepMachine:
         self.baseline: dict[str, tuple[bool, float]] | None = None
         self.claims = self.lesson.claims()
         self.judge_calls = 0
+        self.wait_until_t: float | None = None  # a stated timed wait is running until then
+        self.last_not_yet_t = -1e9
 
     # ---------- public ----------
 
@@ -79,9 +82,11 @@ class StepMachine:
     def current(self) -> Step | None:
         return None if self.done else self.lesson.steps[self.k]
 
-    def feed(self, m: FrameMeasure) -> list[Event]:
+    def feed(self, frame: FrameMeasure) -> list[Event]:
         """Process one frame measurement; return the events it caused."""
         start = len(self.events)
+        cur = self.current
+        m = frame.for_area(cur.work_area if cur else None)
         dt = 0.0 if self.last_t is None else max(0.0, m.t_s - self.last_t)
         self.last_t = m.t_s
         if self.done:
@@ -103,10 +108,44 @@ class StepMachine:
         still = not m.hands_in_work_area and m.motion < t.settle_motion
         self.settle_run_s = self.settle_run_s + dt if still else 0.0
 
+        if self._timed_wait(m):
+            return self.events[start:]
         if not self._object_progress(m):
             self._judge_progress(m)
         self._stall(m)
         return self.events[start:]
+
+    # ---------- stated timed waits ("leave it for 5 minutes") ----------
+
+    def _timed_wait(self, m: FrameMeasure) -> bool:
+        """While a stated wait runs, hands reaching into the work area get a gentle not-yet,
+        and nothing else is decided (the next step cannot have started properly)."""
+        if self.wait_until_t is None:
+            return False
+        left = self.wait_until_t - m.t_s
+        if left <= 0:
+            self.wait_until_t = None
+            self.since_progress_s = 0.0
+            cur = self.current
+            if cur is not None:
+                self._emit(
+                    m.t_s,
+                    "resume",
+                    cur,
+                    cue=f"Time is up. {cur.title}. {cur.instruction}",
+                    detail={"timer_done": True},
+                )
+            return False
+        if m.hands_in_work_area and m.t_s - self.last_not_yet_t >= self.tuning.not_yet_every_s:
+            self.last_not_yet_t = m.t_s
+            self._emit(
+                m.t_s,
+                "not_yet",
+                self.current,
+                cue=f"Not yet. Give it about {_say_duration(left)} more.",
+                detail={"timer": True, "left_s": round(left, 1)},
+            )
+        return True
 
     def finish(self, t_s: float) -> list[Event]:
         """End of the recording: nothing more to decide."""
@@ -163,7 +202,10 @@ class StepMachine:
         # evidence for a later step while the current one is not done: a skip
         for j in range(self.k + 1, len(steps)):
             if self._step_evidence(steps[j], m, self.tuning.skip_hold_factor):
-                skipped = [s for s in steps[self.k : j] if not s.optional]
+                # optional steps and steps no camera can confirm pass quietly
+                skipped = [
+                    s for s in steps[self.k : j] if not s.optional and s.completion.kind != "manual"
+                ]
                 for s in skipped:
                     self._emit(
                         m.t_s,
@@ -187,6 +229,8 @@ class StepMachine:
         if self.settle_run_s < t.settle_s or m.t_s - self.last_judge_t < t.judge_every_s:
             return
         if self.active_s < t.min_step_s or not cur.completion.end_state:
+            return
+        if cur.completion.kind == "manual":
             return
         if cur.completion.kind != "end_state" and self.active_s < t.object_step_judge_after_s:
             return
@@ -244,6 +288,9 @@ class StepMachine:
         self.k += 1
         nxt = self.current
         cue = f"{nxt.title}. {nxt.instruction}" if nxt else "That's it, you're done."
+        if finished.wait_s:
+            self.wait_until_t = m.t_s + finished.wait_s
+            cue = f"Good. Now leave it for about {_say_duration(finished.wait_s)}."
         self._emit(m.t_s, "advance", finished, cue=cue, detail={"reason": reason, **(detail or {})})
         self.active_s = 0.0
         self.since_progress_s = 0.0
@@ -254,7 +301,7 @@ class StepMachine:
             ev.absent_s = 0.0
 
     def _emit(self, t_s, kind, step, cue=None, detail=None) -> None:
-        needed = NEEDS_CLAIM.get(kind)
+        needed = needs_claim(kind, detail or {})
         if needed and needed not in self.claims:
             return  # this recording cannot support that claim
         self.events.append(
@@ -262,6 +309,13 @@ class StepMachine:
                 t_s=t_s, kind=kind, step_id=step.id if step else None, cue=cue, detail=detail or {}
             )
         )
+
+
+def _say_duration(seconds: float) -> str:
+    if seconds >= 90:
+        minutes = round(seconds / 60)
+        return f"{minutes} minute{'s' if minutes != 1 else ''}"
+    return f"{max(5, round(seconds / 5) * 5)} seconds"
 
 
 def run(lesson: Lesson, measures: list[FrameMeasure], **kwargs) -> tuple[list[Event], StepMachine]:

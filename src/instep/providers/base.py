@@ -71,6 +71,8 @@ class DraftStep(BaseModel):
     reference_frame_s: float
     tips: list[DraftTip]
     optional: bool
+    wait_s: float | None = None
+    work_area: str | None = None  # object id, only when not the lesson's main work area
 
 
 class DraftSpan(BaseModel):

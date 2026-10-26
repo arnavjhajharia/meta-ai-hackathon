@@ -392,6 +392,31 @@
           "default": false,
           "title": "Optional",
           "type": "boolean"
+        },
+        "wait_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wait S"
+        },
+        "work_area": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Work Area"
         }
       },
       "required": [

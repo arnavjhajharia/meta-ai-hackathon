@@ -115,3 +115,50 @@ def test_end_state_step_is_judged_only_at_settle_moments() -> None:
     assert [e.kind for e in machine.events] == ["advance"]
     assert calls == [b"6.0", b"10.0"]
     assert machine.events[0].t_s == 10.0
+
+
+def test_stated_timed_wait_holds_the_next_step_and_says_not_yet() -> None:
+    lesson = phone_lesson()
+    lesson.steps[0].wait_s = 20.0
+    events, _ = run(
+        lesson,
+        frames(50, {"mustard_seeds": (5, 50), "curry_leaves": (20, 50)}, hands=[(12, 14)]),
+    )
+    got = [(e.kind, e.step_id) for e in events]
+    assert got[0] == ("advance", "add_mustard")
+    assert "leave it for about 20 seconds" in events[0].cue
+    assert ("not_yet", "add_curry_leaves") in got  # hands in the pan during the wait
+    resume = next(e for e in events if e.kind == "resume")
+    assert resume.t_s >= events[0].t_s + 20
+    assert got[-1] == ("advance", "add_curry_leaves")
+    assert next(e for e in events if e.kind == "not_yet").detail["timer"] is True
+
+
+def test_manual_step_passes_quietly_when_the_next_step_happens() -> None:
+    lesson = phone_lesson()
+    lesson.steps[0].completion = lesson.steps[0].completion.model_copy(
+        update={"kind": "manual", "object": None, "end_state": "a faint crease"}
+    )
+    events, _ = run(lesson, frames(30, {"curry_leaves": (5, 30)}))
+    assert [(e.kind, e.step_id) for e in events] == [("advance", "add_curry_leaves")]
+
+
+def test_step_with_its_own_work_area_is_measured_there() -> None:
+    lesson = phone_lesson()
+    data = lesson.model_dump()
+    data["objects"].append(
+        {"id": "wok", "prompt": "wok", "role": "work_area", "confusable_with": []}
+    )
+    data["steps"][0]["work_area"] = "wok"
+    lesson = Lesson.model_validate(data)
+    fr = frames(30, {"curry_leaves": (15, 30)})
+    for m in fr:  # mustard seeds land in the wok, not in the pan
+        wok = m.model_copy(deep=True)
+        if m.t_s >= 5:
+            wok.objects["mustard_seeds"] = ObjectSeen(score=0.9, in_work_area=True, coverage=0.1)
+        m.areas = {"wok": wok}
+    events, _ = run(lesson, fr)
+    assert [(e.kind, e.step_id) for e in events] == [
+        ("advance", "add_mustard"),
+        ("advance", "add_curry_leaves"),
+    ]

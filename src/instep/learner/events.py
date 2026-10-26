@@ -14,6 +14,14 @@ EventKind = Literal["advance", "skip", "stall", "amount", "not_yet", "frozen", "
 NEEDS_CLAIM = {"amount": "amount", "not_yet": "wait_until"}
 
 
+def needs_claim(kind: str, detail: dict) -> str | None:
+    """A not_yet from a stated timer needs only a clock; one from judging the work needs the
+    teacher's own viewpoint."""
+    if kind == "not_yet" and detail.get("timer"):
+        return None
+    return NEEDS_CLAIM.get(kind)
+
+
 class Event(Contract):
     t_s: float = Field(ge=0)
     kind: EventKind
