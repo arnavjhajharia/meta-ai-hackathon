@@ -30,7 +30,6 @@ from instep.providers import registry
 STATIC = Path(__file__).parent / "static"
 RECORDINGS = ROOT / "data" / "recordings"
 LESSON_DIRS = [ROOT / "data" / "lessons" / "generated", ROOT / "data" / "lessons" / "hand"]
-LEARNER_FPS = 2.0
 SEG_WIDTH = 640
 
 app = FastAPI()
@@ -108,8 +107,8 @@ class Session:
             clip,
             lesson,
             registry.segmenter(cfg),
-            read_frames(clip, LEARNER_FPS, SEG_WIDTH),
-            LEARNER_FPS,
+            read_frames(clip, cfg.learner_fps, SEG_WIDTH),
+            cfg.learner_fps,
             SEG_WIDTH,
         ).frames
         self.judge = registry.judge(cfg) if use_judge else None

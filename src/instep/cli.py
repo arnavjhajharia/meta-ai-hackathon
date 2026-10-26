@@ -21,8 +21,6 @@ from instep.providers import registry
 
 RUNS = ROOT / "runs"
 LESSONS = ROOT / "data" / "lessons" / "generated"
-TUTORIAL_FPS = 1.0
-LEARNER_FPS = 2.0
 SEG_WIDTH = 640
 
 
@@ -109,8 +107,8 @@ def build_lesson(
             video,
             lesson,
             segmenter,
-            read_frames(video, TUTORIAL_FPS, SEG_WIDTH),
-            TUTORIAL_FPS,
+            read_frames(video, cfg.tutorial_fps, SEG_WIDTH),
+            cfg.tutorial_fps,
             SEG_WIDTH,
             progress=True,
         )
@@ -140,8 +138,8 @@ def learn(clip: Path, lesson_path: Path, use_judge: bool = True, cfg: Config | N
         clip,
         lesson,
         registry.segmenter(cfg),
-        read_frames(clip, LEARNER_FPS, SEG_WIDTH),
-        LEARNER_FPS,
+        read_frames(clip, cfg.learner_fps, SEG_WIDTH),
+        cfg.learner_fps,
         SEG_WIDTH,
         progress=True,
     )
@@ -258,8 +256,8 @@ def ingest(video: Path, draft_path: Path, by: str, calibrate_it: bool, cfg: Conf
             video,
             lesson,
             registry.segmenter(cfg),
-            read_frames(video, TUTORIAL_FPS, SEG_WIDTH),
-            TUTORIAL_FPS,
+            read_frames(video, cfg.tutorial_fps, SEG_WIDTH),
+            cfg.tutorial_fps,
             SEG_WIDTH,
             progress=True,
         )

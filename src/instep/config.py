@@ -34,10 +34,12 @@ class Config:
     understander: str = "claude"  # later: muse-spark
     draft_model: str = "claude-opus-5-5"
     draft_effort: str = "high"
-    segmenter: str = "gdino-sam2"  # later: sam3, sam3.1-hosted
+    segmenter: str = "sam3"  # gdino-sam2 is the ungated fallback; later: sam3.1-hosted
     judge: str = "claude"
     judge_model: str = "claude-sonnet-5-5"
     spend_cap_usd: float = 15.0
+    learner_fps: float = 1.0  # SAM 3 on the Mac is about 5 s a frame; raise on a real GPU
+    tutorial_fps: float = 0.5
 
     @classmethod
     def from_env(cls) -> Config:

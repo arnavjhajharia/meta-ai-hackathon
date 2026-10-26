@@ -172,6 +172,7 @@ class Sam3Local:
     def _load(self) -> None:
         if self._models:
             return
+        import torch
         from transformers import Sam3Model, Sam3Processor
 
         from instep.config import model_path
@@ -179,7 +180,10 @@ class Sam3Local:
         dev = _device()
         path = model_path(self.model_id)
         self._models["proc"] = Sam3Processor.from_pretrained(path)
-        self._models["model"] = Sam3Model.from_pretrained(path).to(dev).eval()
+        # half precision on the Mac: same scores on our test frames, half the memory
+        dtype = torch.float16 if dev == "mps" else torch.float32
+        self._models["model"] = Sam3Model.from_pretrained(path, dtype=dtype).to(dev).eval()
+        self._models["dtype"] = dtype
         self._models["dev"] = dev
         self._models["text"] = {}
 
@@ -200,7 +204,7 @@ class Sam3Local:
         sizes = img["original_sizes"].tolist()
         found: list[Detection] = []
         with torch.no_grad():
-            vision = m["model"].get_vision_features(pixel_values=img["pixel_values"])
+            vision = m["model"].get_vision_features(pixel_values=img["pixel_values"].to(m["dtype"]))
             for prompt in dict.fromkeys(prompts):
                 if prompt not in m["text"]:
                     m["text"][prompt] = m["proc"](text=_phrase(prompt), return_tensors="pt").to(
