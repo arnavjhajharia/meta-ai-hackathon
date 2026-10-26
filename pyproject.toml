@@ -4,7 +4,17 @@ version = "0.1.0"
 description = "Record once, anyone can learn it."
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=0.70",
+    "fastapi>=0.110",
+    "matplotlib>=3.8",
+    "mlx-whisper>=0.4",
     "numpy>=1.26",
+    "pillow>=10",
+    "python-dotenv>=1.0",
+    "rapidfuzz>=3",
+    "torch>=2.3",
+    "transformers>=5.0",
+    "uvicorn>=0.30",
     "pydantic>=2.7",
 ]
 

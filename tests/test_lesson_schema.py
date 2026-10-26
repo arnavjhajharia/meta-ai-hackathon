@@ -153,3 +153,34 @@ def test_committed_json_schema_matches_the_models() -> None:
     assert committed == json_schema(), (
         "schemas/lesson.v1.json is stale. Regenerate: .venv/bin/python -m instep.lesson.io"
     )
+
+
+def test_end_state_step_needs_no_object() -> None:
+    data = raw(PHONE)
+    data["steps"][1]["completion"] = {
+        "kind": "end_state",
+        "end_state": "curry leaves spread across the oil",
+        "reference_frame_s": 25.0,
+    }
+    lesson = Lesson.model_validate(data)
+    assert lesson.steps[1].completion.object is None
+
+
+def test_end_state_step_needs_end_state_text() -> None:
+    rejected(PHONE, lambda d: d["steps"][1].update(completion={"kind": "end_state"}), "end_state")
+
+
+def test_object_completion_needs_an_object() -> None:
+    rejected(
+        PHONE,
+        lambda d: d["steps"][1].update(completion={"kind": "appears_in_work_area"}),
+        "needs an object",
+    )
+
+
+def test_reference_frame_must_fit_inside_recording() -> None:
+    rejected(
+        PHONE,
+        lambda d: d["steps"][1]["completion"].update(reference_frame_s=61.0),
+        "reference frame",
+    )

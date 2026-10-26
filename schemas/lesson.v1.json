@@ -70,20 +70,55 @@
     },
     "Completion": {
       "additionalProperties": false,
+      "description": "How the learner side knows a step is finished.\n\nObject kinds are watched every frame by the segmenter. ``end_state`` is for steps where\nnothing new appears and only the shape or arrangement changes (a fold, a wrap, a knot): it\nis judged from one still at a settle moment, against the teacher's reference frame. Any\nkind may carry ``end_state`` text as a fallback description for that still check.",
       "properties": {
         "kind": {
           "enum": [
             "appears_in_work_area",
             "leaves_work_area",
             "coverage_change",
+            "end_state",
             "manual"
           ],
           "title": "Kind",
           "type": "string"
         },
         "object": {
-          "title": "Object",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object"
+        },
+        "end_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End State"
+        },
+        "reference_frame_s": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Frame S"
         },
         "min_hold_s": {
           "default": 1.0,
@@ -93,8 +128,7 @@
         }
       },
       "required": [
-        "kind",
-        "object"
+        "kind"
       ],
       "title": "Completion",
       "type": "object"
@@ -390,6 +424,18 @@
           "default": null,
           "title": "Quote"
         },
+        "quote_language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote Language"
+        },
         "source": {
           "enum": [
             "speech",
@@ -428,6 +474,8 @@
           "enum": [
             "work_area",
             "ingredient",
+            "material",
+            "part",
             "tool",
             "container",
             "hand"
@@ -472,6 +520,18 @@
           "default": "teacher",
           "title": "Speaker",
           "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
         }
       },
       "required": [
@@ -535,6 +595,30 @@
     "title": {
       "title": "Title",
       "type": "string"
+    },
+    "task": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task"
+    },
+    "language": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Language"
     },
     "provenance": {
       "$ref": "#/$defs/Provenance"

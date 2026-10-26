@@ -81,14 +81,37 @@ class Provenance(Contract):
 class TrackedObject(Contract):
     id: str
     prompt: str = Field(min_length=1)
-    role: Literal["work_area", "ingredient", "tool", "container", "hand"]
+    role: Literal["work_area", "ingredient", "material", "part", "tool", "container", "hand"]
     confusable_with: list[str] = []
 
 
+OBJECT_KINDS = {"appears_in_work_area", "leaves_work_area", "coverage_change"}
+
+
 class Completion(Contract):
-    kind: Literal["appears_in_work_area", "leaves_work_area", "coverage_change", "manual"]
-    object: str
+    """How the learner side knows a step is finished.
+
+    Object kinds are watched every frame by the segmenter. ``end_state`` is for steps where
+    nothing new appears and only the shape or arrangement changes (a fold, a wrap, a knot): it
+    is judged from one still at a settle moment, against the teacher's reference frame. Any
+    kind may carry ``end_state`` text as a fallback description for that still check.
+    """
+
+    kind: Literal[
+        "appears_in_work_area", "leaves_work_area", "coverage_change", "end_state", "manual"
+    ]
+    object: str | None = None
+    end_state: str | None = None  # what the work looks like when the step is done
+    reference_frame_s: float | None = Field(default=None, ge=0)  # teacher frame showing it
     min_hold_s: float = Field(default=1.0, ge=0)
+
+    @model_validator(mode="after")
+    def _has_what_it_needs(self) -> Self:
+        if self.kind in OBJECT_KINDS and not self.object:
+            raise ValueError(f"completion kind {self.kind} needs an object")
+        if self.kind == "end_state" and not self.end_state:
+            raise ValueError("completion kind end_state needs end_state text")
+        return self
 
 
 class WaitUntil(Contract):
@@ -107,7 +130,8 @@ class Amount(Contract):
 
 class Tip(Contract):
     text: str
-    quote: str | None = None
+    quote: str | None = None  # verbatim, in the language the teacher spoke
+    quote_language: str | None = None  # ISO 639-1, e.g. "hi"
     source: Literal["speech", "action"]
     at_s: float = Field(ge=0)
 
@@ -143,6 +167,7 @@ class TranscriptSegment(Contract):
     end_s: float
     text: str
     speaker: str = "teacher"
+    language: str | None = None
 
 
 class Calibration(Contract):
@@ -155,6 +180,8 @@ class Lesson(Contract):
     schema_version: Literal["1"] = SCHEMA_VERSION
     id: str
     title: str
+    task: str | None = None  # slug shared by lessons and attempts of the same task
+    language: str | None = None  # main spoken language of the recording
     provenance: Provenance
     objects: list[TrackedObject]
     work_area_object: str
@@ -210,7 +237,8 @@ class Lesson(Contract):
         for s in self.steps:
             for ref in s.objects:
                 need(ref, f"step {s.id!r} objects")
-            need(s.completion.object, f"step {s.id!r} completion")
+            if s.completion.object:
+                need(s.completion.object, f"step {s.id!r} completion")
             if s.amount:
                 need(s.amount.object, f"step {s.id!r} amount")
 
@@ -234,12 +262,14 @@ class Lesson(Contract):
             if s.amount and Claim.amount not in allowed:
                 raise ValueError(
                     f"step {s.id!r} has an amount, but this recording only supports "
-                    f"{", ".join(sorted(allowed))} (amounts need a first-person glasses teacher)"
+                    f"{', '.join(sorted(allowed))} (amounts need a first-person glasses"
+                    " teacher)"
                 )
             if s.wait_until and Claim.wait_until not in allowed:
                 raise ValueError(
                     f"step {s.id!r} has a wait_until, but this recording only supports "
-                    f"{", ".join(sorted(allowed))} (wait_until needs a first-person glasses teacher)"
+                    f"{', '.join(sorted(allowed))} (wait_until needs a first-person glasses"
+                    " teacher)"
                 )
 
     def _check_times(self) -> None:
@@ -258,6 +288,8 @@ class Lesson(Contract):
                     within(span.end_s, f"step {s.id!r} {name}")
             for tip in s.tips:
                 within(tip.at_s, f"step {s.id!r} tip")
+            if s.completion.reference_frame_s is not None:
+                within(s.completion.reference_frame_s, f"step {s.id!r} reference frame")
             if s.wait_until and s.wait_until.reference_frame_s is not None:
                 within(s.wait_until.reference_frame_s, f"step {s.id!r} wait_until")
         for seg in self.transcript:
@@ -275,6 +307,8 @@ class Lesson(Contract):
                 (f"step {s.id!r} instruction", s.instruction),
             ]
             texts += [(f"step {s.id!r} tip", t.text) for t in s.tips]
+            if s.completion.end_state:
+                texts.append((f"step {s.id!r} end_state", s.completion.end_state))
             if s.wait_until:
                 texts += [
                     (f"step {s.id!r} condition", s.wait_until.condition),
