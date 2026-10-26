@@ -132,13 +132,13 @@ class Tip(Contract):
     text: str
     quote: str | None = None  # verbatim, in the language the teacher spoke
     quote_language: str | None = None  # ISO 639-1, e.g. "hi"
-    source: Literal["speech", "action"]
+    source: Literal["speech", "caption", "action"]  # said it, wrote it on screen, or showed it
     at_s: float = Field(ge=0)
 
     @model_validator(mode="after")
-    def _speech_is_quoted(self) -> Self:
-        if self.source == "speech" and not self.quote:
-            raise ValueError("a spoken tip needs the teacher's quote")
+    def _words_are_quoted(self) -> Self:
+        if self.source in ("speech", "caption") and not self.quote:
+            raise ValueError(f"a {self.source} tip needs the teacher's quote")
         return self
 
 

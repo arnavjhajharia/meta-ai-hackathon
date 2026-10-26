@@ -201,8 +201,8 @@ def to_lesson(
                 tips.append(
                     Tip(
                         text=_clean(kept.text),
-                        quote=kept.quote if kept.source == "speech" else None,
-                        quote_language=kept.quote_language if kept.source == "speech" else None,
+                        quote=kept.quote if kept.source != "action" else None,
+                        quote_language=kept.quote_language if kept.source != "action" else None,
                         source=kept.source,
                         at_s=min(max(kept.at_s, 0.0), duration),
                     )

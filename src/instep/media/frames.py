@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import io
 import json
 import re
@@ -24,8 +25,14 @@ class VideoInfo:
 
 
 def probe(path: Path) -> VideoInfo:
+    path = Path(path)
+    return _probe(str(path), path.stat().st_mtime)
+
+
+@functools.lru_cache(maxsize=256)
+def _probe(path: str, mtime: float) -> VideoInfo:
     out = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)],
+        ["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", path],
         check=True,
         capture_output=True,
         text=True,
@@ -77,19 +84,24 @@ def read_frames(path: Path, fps: float, width: int = 640) -> Iterator[tuple[floa
 
 
 def frame_at(path: Path, t_s: float, width: int = 640) -> np.ndarray:
+    """One frame near ``t_s``. Container durations can overstate the video stream, so if
+    decoding at ``t_s`` yields nothing, step back a little."""
     info = probe(path)
     w, h = _scaled_size(info, width)
-    t = max(0.0, min(t_s, info.duration_s - 0.05))
-    buf = subprocess.run(
-        [
-            "ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", str(path),
-            "-frames:v", "1", "-vf", f"scale={w}:{h}",
-            "-f", "rawvideo", "-pix_fmt", "rgb24", "-",
-        ],
-        check=True,
-        capture_output=True,
-    ).stdout  # fmt: skip
-    return np.frombuffer(buf[: w * h * 3], np.uint8).reshape(h, w, 3)
+    size = w * h * 3
+    for back in (0.0, 0.3, 1.0, 2.5, 5.0):
+        t = max(0.0, min(t_s, info.duration_s - 0.05) - back)
+        buf = subprocess.run(
+            [
+                "ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", str(path),
+                "-frames:v", "1", "-vf", f"scale={w}:{h}",
+                "-f", "rawvideo", "-pix_fmt", "rgb24", "-",
+            ],
+            capture_output=True,
+        ).stdout  # fmt: skip
+        if len(buf) >= size:
+            return np.frombuffer(buf[:size], np.uint8).reshape(h, w, 3)
+    raise RuntimeError(f"could not decode a frame near {t_s:.2f}s of {path}")
 
 
 def scene_cuts(path: Path, threshold: float = 0.3) -> list[float]:

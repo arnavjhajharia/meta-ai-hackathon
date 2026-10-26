@@ -439,6 +439,7 @@
         "source": {
           "enum": [
             "speech",
+            "caption",
             "action"
           ],
           "title": "Source",

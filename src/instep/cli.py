@@ -1,0 +1,194 @@
+"""InStep command line.
+
+python -m instep.cli lesson <tutorial.mp4> [--variant V] [--no-calibrate] [--publish]
+python -m instep.cli learn <attempt.mp4> <lesson.json> [--no-judge]
+python -m instep.cli grid <video.mp4> [--every 1.0]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from dataclasses import asdict
+from pathlib import Path
+
+from instep import cache
+from instep.config import ROOT, Config
+from instep.lesson.io import load_lesson, save_lesson
+from instep.lesson.schema import Lesson, RecordingRef, Step
+from instep.media.frames import frame_at, probe, read_frames, to_jpeg
+from instep.providers import registry
+
+RUNS = ROOT / "runs"
+LESSONS = ROOT / "data" / "lessons" / "generated"
+TUTORIAL_FPS = 1.0
+LEARNER_FPS = 2.0
+SEG_WIDTH = 640
+
+
+def parse_variant(text: str):
+    """prompt:every_s:max_frames:width:tx|notx, e.g. draft_v1:2:120:512:tx"""
+    from instep.teacher.draft import DraftSettings
+
+    p, every, n, w, tx = text.split(":")
+    return DraftSettings(p, float(every), int(n), int(w), tx == "tx")
+
+
+def recording_ref(video: Path) -> RecordingRef:
+    info = probe(video)
+    url = None
+    manifest = ROOT / "data" / "tutorials.json"
+    if manifest.exists():
+        for row in json.loads(manifest.read_text()):
+            if row.get("file") == video.name:
+                url = row.get("url")
+    return RecordingRef(
+        path=str(video.relative_to(ROOT)) if video.is_relative_to(ROOT) else str(video),
+        source_url=url,
+        sha256=cache.file_sha256(video),
+        duration_s=info.duration_s,
+        fps=info.fps,
+        width=info.width,
+        height=info.height,
+    )
+
+
+def build_lesson(
+    video: Path, settings, calibrate_it: bool = True, cfg: Config | None = None
+) -> tuple[Lesson, dict]:
+    from instep.learner.measure import measure_clip
+    from instep.teacher.calibrate import calibrate
+    from instep.teacher.draft import draft_lesson
+
+    cfg = cfg or Config.from_env()
+    video = video.resolve()
+    info = probe(video)
+    transcriber = registry.transcriber(cfg)
+    transcript = transcriber.transcribe(video) if info.has_audio else None
+    outcome = draft_lesson(
+        video,
+        info,
+        recording_ref(video),
+        transcript,
+        registry.understander(cfg),
+        settings,
+        transcriber_name=f"{transcriber.name}:{cfg.whisper_model}",
+    )
+    lesson = outcome.lesson
+    out = RUNS / "lessons" / video.stem / settings.label
+    out.mkdir(parents=True, exist_ok=True)
+    save_lesson(lesson, out / "lesson_draft.json")
+    report: dict = {
+        "video": video.name,
+        "variant": settings.label,
+        "model": outcome.model,
+        "usage": outcome.usage,
+        "draft_issues": outcome.issues,
+        "transcript_language": transcript.language if transcript else None,
+        "n_steps": len(lesson.steps),
+    }
+    if calibrate_it:
+        segmenter = registry.segmenter(cfg)
+        measures = measure_clip(
+            video,
+            lesson,
+            segmenter,
+            read_frames(video, TUTORIAL_FPS, SEG_WIDTH),
+            TUTORIAL_FPS,
+            SEG_WIDTH,
+            progress=True,
+        )
+        lesson, cal = calibrate(lesson, measures)
+        report["calibration"] = asdict(cal)
+    save_lesson(lesson, out / "lesson.json")
+    (out / "report.json").write_text(json.dumps(report, indent=2))
+    return lesson, report
+
+
+def tutorial_path(lesson: Lesson) -> Path | None:
+    rec = lesson.provenance.recording
+    if rec is None:
+        return None
+    p = Path(rec.path)
+    return p if p.is_absolute() else ROOT / p
+
+
+def learn(clip: Path, lesson_path: Path, use_judge: bool = True, cfg: Config | None = None):
+    from instep.learner.machine import StepMachine
+    from instep.learner.measure import measure_clip
+
+    cfg = cfg or Config.from_env()
+    clip = clip.resolve()
+    lesson = load_lesson(lesson_path)
+    measures = measure_clip(
+        clip,
+        lesson,
+        registry.segmenter(cfg),
+        read_frames(clip, LEARNER_FPS, SEG_WIDTH),
+        LEARNER_FPS,
+        SEG_WIDTH,
+        progress=True,
+    )
+    tutorial = tutorial_path(lesson)
+
+    def still_at(t: float) -> bytes:
+        return to_jpeg(frame_at(clip, t, 768), 80)
+
+    def reference_for(step: Step) -> bytes | None:
+        t = step.completion.reference_frame_s
+        if tutorial is None or t is None or not tutorial.exists():
+            return None
+        return to_jpeg(frame_at(tutorial, t, 768), 80)
+
+    machine = StepMachine(
+        lesson,
+        judge=registry.judge(cfg) if use_judge else None,
+        still_at=still_at,
+        reference_for=reference_for,
+    )
+    for m in measures.frames:
+        machine.feed(m)
+    out = RUNS / "learn" / clip.stem / lesson.id
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "events.json").write_text(json.dumps([e.model_dump() for e in machine.events], indent=2))
+    return machine.events, measures, machine
+
+
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(prog="instep")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    a = sub.add_parser("lesson")
+    a.add_argument("video", type=Path)
+    a.add_argument("--variant", default="draft_v1:2:120:512:tx")
+    a.add_argument("--no-calibrate", action="store_true")
+    a.add_argument("--publish", action="store_true", help="copy to data/lessons/generated/")
+    b = sub.add_parser("learn")
+    b.add_argument("clip", type=Path)
+    b.add_argument("lesson", type=Path)
+    b.add_argument("--no-judge", action="store_true")
+    g = sub.add_parser("grid")
+    g.add_argument("video", type=Path)
+    g.add_argument("--every", type=float, default=1.0)
+    args = ap.parse_args(argv)
+
+    if args.cmd == "lesson":
+        lesson, report = build_lesson(
+            args.video, parse_variant(args.variant), not args.no_calibrate
+        )
+        if args.publish:
+            save_lesson(lesson, LESSONS / f"{lesson.id}.json")
+        print(json.dumps({k: v for k, v in report.items() if k != "usage"}, indent=2))
+    elif args.cmd == "learn":
+        events, _, machine = learn(args.clip, args.lesson, not args.no_judge)
+        for e in events:
+            print(f"{e.t_s:7.1f}s  {e.kind:8s} {e.step_id or '':24s} {e.cue or ''}")
+        print(f"judge calls: {machine.judge_calls}")
+    elif args.cmd == "grid":
+        from instep.media.grid import video_grids
+
+        pages = video_grids(args.video, RUNS / "grids" / args.video.stem, every_s=args.every)
+        print("\n".join(str(p) for p in pages))
+
+
+if __name__ == "__main__":
+    main()

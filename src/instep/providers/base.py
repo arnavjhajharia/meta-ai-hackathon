@@ -52,7 +52,7 @@ class DraftTip(BaseModel):
     text: str
     quote: str | None
     quote_language: str | None
-    source: Literal["speech", "action"]
+    source: Literal["speech", "caption", "action"]
     at_s: float
 
 

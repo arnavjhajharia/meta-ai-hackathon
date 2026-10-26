@@ -81,7 +81,7 @@ class _Client:
         start = time.time()
         response = self.client.beta.messages.parse(
             model=model,
-            max_tokens=32000,
+            max_tokens=16000,
             betas=[FALLBACK_BETA],
             fallbacks="default",
             output_config={"effort": effort},

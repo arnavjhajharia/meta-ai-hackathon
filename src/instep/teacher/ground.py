@@ -39,6 +39,13 @@ def ground_tip(tip: DraftTip, transcript: Transcript | None) -> tuple[DraftTip |
     """Keep a tip only if it is grounded. Returns (tip or None, issue or None)."""
     if tip.source == "action":
         return tip, None
+    if tip.source == "caption":
+        # on-screen text is checked by the reviewer against the frame, not here
+        return (
+            (tip, None)
+            if tip.quote
+            else (None, f"caption tip without its text dropped: {tip.text!r}")
+        )
     if not tip.quote:
         return None, f"spoken tip without a quote dropped: {tip.text!r}"
     match = find_quote(tip.quote, transcript)

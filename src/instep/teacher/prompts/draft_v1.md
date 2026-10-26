@@ -64,6 +64,9 @@ or another language), and frames labelled with their time in seconds.
   - source speech: quote is copied exactly from the transcript, in the original language and
     script, as one short phrase or sentence. quote_language is its ISO 639-1 code. text is a
     short, warm English version in the teacher's voice.
+  - source caption: words the video shows on screen (many tutorials have no narration and put
+    amounts and tips in captions). quote is the on-screen text exactly as written, at_s is a
+    frame time where it is visible. Captions also count as the teacher's words for amounts.
   - source action: something the teacher shows without saying (holds the fold down with a
     thumb). quote and quote_language are null.
   - at_s: when it is said or shown.
