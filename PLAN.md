@@ -92,7 +92,7 @@ the eval.
 
 - [ ] Make a fresh `.venv`, `pip install -e '.[dev]'`, tests and lint green.
 - [ ] Decide what we are aiming for now (a later hackathon, a portfolio piece, real users).
-- [ ] Write the Anthropic credit balance into "Models and credits" below and set
+- [x] Write the Anthropic credit balance into "Models and credits" below and set
       `INSTEP_SPEND_CAP_USD` to match.
 - [ ] One real (uncached) Opus draft on the chosen tutorial to replace the cost estimates below
       with a measured number from `.cache/spend.jsonl`.
@@ -322,13 +322,13 @@ Estimates until phase 0 measures a real draft; replace them with numbers from
 | Eval reruns while tuning thresholds | cached unless a prompt or model changes | about $0 |
 | Live demo and rehearsals (judge plus voice) | tens per run | under $1 per run |
 
-Credit balance: **(fill in)**. Spend so far: $0 (no API calls logged yet; earlier drafts were
-written by Claude Code subagents through `prepare` / `ingest`).
+Credit balance: **$50**, and the spend cap is set to match. Spend so far: $0 (no API calls
+logged yet; earlier drafts were written by Claude Code subagents through `prepare` / `ingest`).
 
 ### Rules
 
 - Every call goes through the cache, keyed by its exact inputs. Never bypass it in a script.
-- `INSTEP_SPEND_CAP_USD` (default $15) is checked against the total in `.cache/spend.jsonl`
+- `INSTEP_SPEND_CAP_USD` (default $50) is checked against the total in `.cache/spend.jsonl`
   before each call; raise it on purpose, never to get one run through.
 - Ask before any command that makes more than a handful of uncached calls (a prompt change that
   invalidates every Lesson, a batch over all tutorials).

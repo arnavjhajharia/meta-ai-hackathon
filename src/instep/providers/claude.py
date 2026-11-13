@@ -119,7 +119,7 @@ def _transcript_text(request: DraftRequest) -> str:
 class ClaudeUnderstander:
     model: str = "claude-opus-5-5"
     effort: str = "high"
-    spend_cap_usd: float = 15.0
+    spend_cap_usd: float = 50.0
     name: str = "claude"
 
     def draft_lesson(self, request: DraftRequest) -> DraftResult:
@@ -177,7 +177,7 @@ and done to false. Never guess done from context. Keep "missing" to one short pl
 class ClaudeStillJudge:
     model: str = "claude-sonnet-5-5"
     effort: str = "low"
-    spend_cap_usd: float = 15.0
+    spend_cap_usd: float = 50.0
     name: str = "claude-judge"
 
     def judge(

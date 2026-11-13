@@ -127,7 +127,7 @@ that apply every turn; put procedures in skills.
 ## Money and credits
 
 - Anthropic credits are the only money we spend. Every call goes through the cache, and
-  `INSTEP_SPEND_CAP_USD` (default $15) stops calls once `.cache/spend.jsonl` reaches it. Never
+  `INSTEP_SPEND_CAP_USD` (default $50) stops calls once `.cache/spend.jsonl` reaches it. Never
   raise the cap just to get one run through.
 - Ask before any command that makes more than a handful of uncached model calls.
 - Use the subagent drafting path (`prepare`, a subagent drafts, `ingest`) for exploratory prompt

@@ -37,7 +37,7 @@ class Config:
     segmenter: str = "sam3"  # gdino-sam2 is the ungated fallback; later: sam3.1-hosted
     judge: str = "claude"
     judge_model: str = "claude-sonnet-5-5"
-    spend_cap_usd: float = 15.0
+    spend_cap_usd: float = 50.0
     learner_fps: float = 1.0  # SAM 3 on the Mac is about 5 s a frame; raise on a real GPU
     tutorial_fps: float = 0.5
 
