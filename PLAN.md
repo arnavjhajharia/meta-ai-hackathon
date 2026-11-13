@@ -69,6 +69,19 @@ Run the lanes in parallel:
 | 6 | Answer quality | Voice pipeline end to end |
 | 7 | Eval numbers, architecture diagram | Video, README, rehearsals |
 
+### Who waits on whom
+
+Each phase below ends with an **Order** table: the steps where one of us blocks the other,
+numbered by phase (1.3 is phase 1, step 3). A step with nothing under "waits on" can start right
+away. **Agree** steps are short conversations that settle a shared interface, so both sides can
+build in parallel against fakes.
+
+The long pole is 1.3 (Ashmita's recordings): 1.6 to 1.10, 2.2 and 2.5 all wait on it. Record
+first.
+
+Files neither lane owns, so pull before editing and keep commits small: `cli.py`,
+`sim/server.py` (Arnav reads it, Ashmita changes it), `providers/registry.py`.
+
 Rubric reminder: Impact and Demo are 55%. One mode that works every time beats three shaky ones.
 If time runs short, ship phases 1, 2 and 7 with AB as the lead, and cut 4 or 6 before cutting
 the eval.
@@ -102,12 +115,30 @@ Arnav:
 
 Ashmita:
 - [ ] Record two or three learner attempts of the chosen task (chest phone stand-in is fine, mark
-      it in the filename), at least one with a deliberate skip and one stall.
+      it in the filename). Between them: a deliberate skip, a stall, a clearly wrong amount, and
+      reaching in too early on a "wait until" step (phase 2 needs the last two).
+- [ ] Record one teacher take of the same task. The AB Lesson's reference frames and the
+      teacher's amounts come from it.
 - [ ] Hand-write the AB Lesson (`authored: hand_written`) with at least one amount and one
       "wait until" step, run `/lesson-review`, commit it to `data/lessons/hand/`.
 - [ ] Confirm every label row Arnav drafted, then commit them to `data/labels/`.
 - [ ] Add a file `FrameSource` in `sources/` and wire it into `sim/server.py` and `cli learn`, so
       nothing reads video files directly except that source. Tests on a tiny synthetic clip.
+
+Order:
+
+| # | Who | Step | Waits on |
+|---|---|---|---|
+| 1.1 | Both | Pick the one task (chai or paper boat) | |
+| 1.2 | Arnav | A'B Lesson from the tutorial; `finish()` (heads up if it adds an event kind) | 1.1 |
+| 1.3 | Ashmita | Learner attempts (skip, stall, wrong amount, early reach) and one teacher take | 1.1 |
+| 1.4 | Both | **Agree** how a `FrameSource` gives `measure_clip` a cache key | |
+| 1.5 | Ashmita | File `FrameSource`, wired into the simulator and `cli learn` | 1.4 |
+| 1.6 | Ashmita | Hand-write the AB Lesson, reference frames pointing at the teacher take | 1.3 |
+| 1.7 | Arnav | `/lesson-review` on the AB Lesson: objects the segmenter can find, sensible completions | 1.6 |
+| 1.8 | Arnav | Draft labels for the learner clips | 1.3 |
+| 1.9 | Ashmita | Confirm every label row | 1.8 |
+| 1.10 | Arnav | Eval baseline against both Lessons | 1.2, 1.7, 1.9 |
 
 **Done when:** `/eval` prints per-event precision and timing error for both Lessons on the
 labelled clips, and the simulator replays a clip through a `FrameSource`.
@@ -131,6 +162,17 @@ Ashmita, in parallel:
 - [ ] Simulator shows `amount` and `not_yet` cues distinctly (caption style, spoken tone).
 - [ ] Start the phone app against Meta's Mock Device Kit: connect, stream frames, show them.
 
+Order:
+
+| # | Who | Step | Waits on |
+|---|---|---|---|
+| 2.1 | Both | **Agree** the `detail` shape of `amount` and `not_yet`, and any schema change for teacher amounts | |
+| 2.2 | Arnav | Amounts and judged not-yet; calibrate on the teacher take | 1.6, 2.1 |
+| 2.3 | Ashmita | Update the AB Lesson if the schema changed; simulator shows the new events (stubbed until 2.2) | 2.1 |
+| 2.4 | Ashmita | Phone app on Mock Device Kit | |
+| 2.5 | Arnav, then Ashmita | Draft, then confirm, amount and not-yet labels on the 1.3 clips | 1.3 |
+| 2.6 | Arnav | Eval with the new events, before and after | 2.2, 2.5 |
+
 **Done when:** on at least one labelled AB clip, `amount` and `not_yet` fire at the right moments
 with no regressions on phase 1 numbers.
 
@@ -149,6 +191,13 @@ Replaces the hand-written AB Lessons with real ones.
 - [ ] `/lesson-review` on each generated Lesson; diff against the hand-written one for the same
       task.
 
+Order:
+
+| # | Who | Step | Waits on |
+|---|---|---|---|
+| 3.1 | Ashmita | Teacher sessions on the glasses | |
+| 3.2 | Arnav | A pipeline: glasses recording to a calibrated AB Lesson | 2.2, 3.1 |
+
 **Done when:** a learner clip scores at least as well against the generated AB Lesson as against
 the hand-written one.
 
@@ -163,6 +212,13 @@ New code goes in its own module (`src/instep/tutorial/`).
 - [ ] Render with ffmpeg (no new dependency) to an mp4 plus a chapter JSON.
 - [ ] A phone player page (chapters, captions, replay step). Run `/phone-preview` at 390x844.
 - [ ] Check: someone who has not seen the raw footage follows the tutorial and completes the task.
+
+Order:
+
+| # | Who | Step | Waits on |
+|---|---|---|---|
+| 4.1 | Ashmita | AB' prototype on the A'B Lesson or the 1.3 teacher take, so no waiting | |
+| 4.2 | Ashmita | AB' on a real glasses Lesson | 3.2, 4.1 |
 
 **Done when:** a 10 to 20 minute raw recording becomes a 2 to 4 minute tutorial, and one stranger
 gets through it.
@@ -183,6 +239,15 @@ Arnav:
       `gdino-sam2` fallback and a smaller detector against `/eval`; pick the fastest one that
       holds the phase 1 numbers. No paid GPU.
 
+Order:
+
+| # | Who | Step | Waits on |
+|---|---|---|---|
+| 5.1 | Both | **Agree** a per-frame measure call for live use (the simulator measures whole clips today) | |
+| 5.2 | Arnav | Per-frame measure; a segmenter fast enough for live; per-frame timing offline | 5.1 |
+| 5.3 | Ashmita | Device `FrameSource`, live backend on the fake segmenter, cues on the glasses | 2.4, 5.1 |
+| 5.4 | Both | Plug 5.2 into 5.3; Arnav measures frame to cue end to end | 5.2, 5.3 |
+
 **Done when:** a learner wearing the glasses completes the demo task live, hearing cues, with the
 lesson waiting, replaying and catching a skip.
 
@@ -192,6 +257,14 @@ lesson waiting, replaying and catching a skip.
       local Whisper; speak the answer back.
 - [ ] Arnav: answer from the Lesson (tips, amounts) plus the current still, in the teacher's voice.
 - [ ] Ashmita: replay the teacher's clip for that step when that helps more than words.
+
+Order:
+
+| # | Who | Step | Waits on |
+|---|---|---|---|
+| 6.1 | Both | **Agree** the answer interface (question, Lesson, still in; text out) | |
+| 6.2 | Arnav | Answer quality | 6.1 |
+| 6.3 | Ashmita | Voice pipeline on a fake answerer, then the real one | 5.3, 6.1 |
 
 **Done when:** three scripted questions get correct, short answers during a live run.
 
@@ -204,6 +277,14 @@ lesson waiting, replaying and catching a skip.
 - [ ] Ashmita: README covering what it is and how to run the simulator on a recorded clip.
 - [ ] Both: clean repo with no secrets and no videos, runnable from a fresh clone.
 - [ ] Both: rehearse the live demo end to end twice, with a recorded fallback ready.
+
+Order:
+
+| # | Who | Step | Waits on |
+|---|---|---|---|
+| 7.1 | Arnav | Final eval numbers and architecture diagram | 2.6 |
+| 7.2 | Ashmita | Video script, recording, README | 5.4, 7.1 |
+| 7.3 | Both | Clean repo, rehearse the live demo twice | 7.2 |
 
 **Done when:** the video is uploaded, the README runs on a fresh clone, and the live demo has
 gone right twice in a row.
