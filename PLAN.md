@@ -4,8 +4,23 @@ The full vision, in phases. Each phase has an owner, what "done" means, and how 
 Read `CLAUDE.md` for vocabulary (A, A', B, B', AB, AB', A'B) and design principles, and
 `HACKATHON.md` for the event, rubric and demo outline.
 
-Owners: **Arnav** (no glasses, works from recorded footage) and **Ashmita** (in Canada:
-has the Ray-Bans, builds the phone app, records teacher sessions and learner attempts).
+## Who owns what
+
+Two lanes, split along code boundaries so we rarely touch the same files. Each lane is mostly
+dev work; recording is a side job for Ashmita because she has the glasses.
+
+| | **Arnav**: understanding and detection | **Ashmita**: capture, delivery and product |
+|---|---|---|
+| In one line | What happened in a recording, and was it right | Getting frames in, getting lessons and cues out to people |
+| Owns | `teacher/`, `learner/`, `eval/`, the understander, judge and segmenter providers | `sources/`, `sim/`, the phone app, the live backend, AB' rendering and player, voice |
+| Modes | A, AB, A'B detection | AB', the live loop for every mode |
+| Also | Eval numbers, prompts, thresholds, credit spend | Recordings, hand-written AB Lessons, confirming labels, README, demo video |
+
+Shared contracts: `lesson/schema.py` and `learner/events.py`. Changing either needs a heads up to
+the other person and the contract test updated in the same commit.
+
+**Never grade your own homework, across lanes:** Arnav drafts labels and Ashmita confirms them, so
+the person tuning detection is never the one who signs off the ground truth.
 
 ## Where we are (Nov 12)
 
@@ -38,8 +53,20 @@ Recording (Ashmita) runs alongside everything from phase 1 on.
 The old Meta swap phase is gone: there are no Meta credits. The only paid service is the Anthropic
 API (see "Models and credits" below); everything else runs locally.
 
+Run the lanes in parallel:
+
+| Phase | Arnav | Ashmita |
+|---|---|---|
+| 1 | A'B Lesson, `finish()`, label drafts, eval baseline | `FrameSource` wiring, hand-written AB Lesson, learner recordings, label confirmation |
+| 2 | Amounts and judged not-yet | Simulator shows the new events; start the phone app on Mock Device Kit |
+| 3 | A pipeline | Teacher recordings |
+| 4 | Supplies calibrated spans | All of AB' |
+| 5 | Fast-path latency, segmenter speed | Device source, app, live backend, spoken cues |
+| 6 | Answer quality | Voice pipeline end to end |
+| 7 | Eval numbers, architecture diagram | Video, README, rehearsals |
+
 Rubric reminder: Impact and Demo are 55%. One mode that works every time beats three shaky ones.
-If time runs short, ship phases 1, 2 and 8 with AB as the lead, and cut 4 or 7 before cutting
+If time runs short, ship phases 1, 2 and 7 with AB as the lead, and cut 4 or 6 before cutting
 the eval.
 
 ---
@@ -59,24 +86,26 @@ the eval.
 **Done when:** `pytest -q` and lint pass on a clean checkout, and the credit balance, the cap and
 one measured draft cost are written down.
 
-## Phase 1: Close day 1, A'B and B on recorded footage (Arnav)
+## Phase 1: Close day 1, A'B and B on recorded footage (both)
 
 Pick **one task** for everything (masala chai fits the story; the paper boat is easier to see).
 Use the same task for the tutorial, the hand-written Lesson and the learner attempts.
 
+Arnav:
 - [ ] Generate the A'B Lesson from the chosen tutorial, run `/lesson-review`, commit it to
       `data/lessons/generated/`.
-- [ ] Hand-write the AB Lesson (`authored: hand_written`) with at least one amount and one
-      "wait until" step, run `/lesson-review`, commit it to `data/lessons/hand/`.
-- [ ] Label at least two learner clips with `/label` (a human confirms every row), commit them
-      to `data/labels/`.
+- [ ] Draft labels for the learner clips with `/label`.
 - [ ] Run `/eval` against both Lessons and record baseline numbers in `runs/` and in this file.
 - [ ] `finish()`: emit a final event when the recording ends partway through (unfinished step).
-- [ ] Wire `FrameSource` into `sim/server.py` and `cli learn` (a file source now; a device
-      source later), so no code reads video files directly except the file source.
 
-**Ashmita, in parallel:** record two or three learner attempts of the chosen task (chest phone
-stand-in is fine, mark it in the filename), at least one with a deliberate skip and one stall.
+Ashmita:
+- [ ] Record two or three learner attempts of the chosen task (chest phone stand-in is fine, mark
+      it in the filename), at least one with a deliberate skip and one stall.
+- [ ] Hand-write the AB Lesson (`authored: hand_written`) with at least one amount and one
+      "wait until" step, run `/lesson-review`, commit it to `data/lessons/hand/`.
+- [ ] Confirm every label row Arnav drafted, then commit them to `data/labels/`.
+- [ ] Add a file `FrameSource` in `sources/` and wire it into `sim/server.py` and `cli learn`, so
+      nothing reads video files directly except that source. Tests on a tiny synthetic clip.
 
 **Done when:** `/eval` prints per-event precision and timing error for both Lessons on the
 labelled clips, and the simulator replays a clip through a `FrameSource`.
@@ -93,7 +122,12 @@ The checks only AB can make, because teacher and learner share a viewpoint.
 - [ ] Judged `not_yet`: on a `WaitUntil` step, at a settle moment, ask the judge with the
       learner still and the teacher's reference still; cue the teacher's own tip.
 - [ ] Contract tests: these events are dropped for A'B Lessons (claims filter), emitted for AB.
-- [ ] Label the amount and not-yet moments on the clips; run `/eval` before and after.
+- [ ] Draft labels for the amount and not-yet moments (Ashmita confirms); run `/eval` before and
+      after.
+
+Ashmita, in parallel:
+- [ ] Simulator shows `amount` and `not_yet` cues distinctly (caption style, spoken tone).
+- [ ] Start the phone app against Meta's Mock Device Kit: connect, stream frames, show them.
 
 **Done when:** on at least one labelled AB clip, `amount` and `not_yet` fire at the right moments
 with no regressions on phase 1 numbers.
@@ -116,7 +150,10 @@ Replaces the hand-written AB Lessons with real ones.
 **Done when:** a learner clip scores at least as well against the generated AB Lesson as against
 the hand-written one.
 
-## Phase 4: AB', glasses recording to a watchable tutorial (Arnav)
+## Phase 4: AB', glasses recording to a watchable tutorial (Ashmita)
+
+Reads only a calibrated Lesson and the recording, so it needs nothing from Arnav beyond phase 3.
+New code goes in its own module (`src/instep/tutorial/`).
 
 - [ ] Cut dead time: keep each step's calibrated span plus padding; drop spans with no hands in
       the work area and no speech.
@@ -128,13 +165,17 @@ the hand-written one.
 **Done when:** a 10 to 20 minute raw recording becomes a 2 to 4 minute tutorial, and one stranger
 gets through it.
 
-## Phase 5: Live loop on the glasses (Ashmita builds the app, Arnav builds the backend)
+## Phase 5: Live loop on the glasses (Ashmita leads, Arnav on the fast path)
 
+Ashmita:
 - [ ] Device `FrameSource`: Mock Device Kit first, then the real Wearables Device Access Toolkit
       720p stream, both through the same interface the simulator uses.
-- [ ] Phone app sends frames (sampled) to the backend; backend runs measure plus `StepMachine`
-      and sends events back.
-- [ ] Spoken cues through the glasses' open-ear speakers (phone TTS to start).
+- [ ] Live backend: grow `sim/server.py`'s websocket into a server that takes frames from the
+      phone, runs measure plus `StepMachine`, and sends events back.
+- [ ] Phone app sends sampled frames and plays spoken cues through the glasses' open-ear
+      speakers (phone TTS to start).
+
+Arnav:
 - [ ] Latency budget: frame to cue under about 1 s on the fast path. Measure it, show it.
 - [ ] Segmenter speed: SAM 3 on the Mac is about 5 s a frame, too slow for live. Measure the
       `gdino-sam2` fallback and a smaller detector against `/eval`; pick the fastest one that
@@ -143,22 +184,24 @@ gets through it.
 **Done when:** a learner wearing the glasses completes the demo task live, hearing cues, with the
 lesson waiting, replaying and catching a skip.
 
-## Phase 6: Voice questions (both, if time)
+## Phase 6: Voice questions (Ashmita leads, if time)
 
-- [ ] Learner asks a question ("how much salt?"); transcribe with local Whisper.
-- [ ] Answer from the Lesson (tips, amounts) plus the current still, in the teacher's voice.
-- [ ] Answer replays the teacher's clip for that step when that helps more than words.
+- [ ] Ashmita: learner asks a question ("how much salt?") through the glasses mic; transcribe with
+      local Whisper; speak the answer back.
+- [ ] Arnav: answer from the Lesson (tips, amounts) plus the current still, in the teacher's voice.
+- [ ] Ashmita: replay the teacher's clip for that step when that helps more than words.
 
 **Done when:** three scripted questions get correct, short answers during a live run.
 
 ## Phase 7: Demo and submission (both)
 
-- [ ] Script the video from the outline in `HACKATHON.md` (best moment in the first 30 s).
-- [ ] Record with a real teacher and a real learner, lead with AB.
-- [ ] Eval numbers on screen (step timing, skip, amount, not-yet).
-- [ ] README: what it is, how to run the simulator on a recorded clip, the architecture diagram.
-- [ ] Clean repo: no secrets, no videos, runnable from a fresh clone.
-- [ ] Rehearse the live demo end to end twice, with a recorded fallback ready.
+- [ ] Ashmita: script the video from the outline in `HACKATHON.md` (best moment in the first 30 s).
+- [ ] Ashmita: record with a real teacher and a real learner, lead with AB.
+- [ ] Arnav: eval numbers on screen (step timing, skip, amount, not-yet) and the architecture
+      diagram.
+- [ ] Ashmita: README covering what it is and how to run the simulator on a recorded clip.
+- [ ] Both: clean repo with no secrets and no videos, runnable from a fresh clone.
+- [ ] Both: rehearse the live demo end to end twice, with a recorded fallback ready.
 
 **Done when:** the video is uploaded, the README runs on a fresh clone, and the live demo has
 gone right twice in a row.
