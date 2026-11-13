@@ -24,17 +24,19 @@ Missing:
 - `amount` and judged `not_yet` events are never emitted, so AB is really A'B plus timers.
 - `StepMachine.finish()` does nothing.
 - `FrameSource` is defined but not used anywhere.
-- Nothing for A, AB', the Meta services, the live loop, voice, the README or the demo video.
+- Nothing for A, AB', the live loop, voice, the README or the demo video.
 
 ## How the phases fit
 
 ```
 0 Reset ──> 1 Close day 1 ──> 2 AB checks ──┐
-                    │                       ├──> 6 Live loop ──> 7 Voice ──> 8 Demo
+                    │                       ├──> 5 Live loop ──> 6 Voice ──> 7 Demo
                     └──> 3 A pipeline ──> 4 AB'
-5 Meta swap (any time once credits work; rerun every eval after)
 Recording (Ashmita) runs alongside everything from phase 1 on.
 ```
+
+The old Meta swap phase is gone: there are no Meta credits. The only paid service is the Anthropic
+API (see "Models and credits" below); everything else runs locally.
 
 Rubric reminder: Impact and Demo are 55%. One mode that works every time beats three shaky ones.
 If time runs short, ship phases 1, 2 and 8 with AB as the lead, and cut 4 or 7 before cutting
@@ -48,11 +50,14 @@ the eval.
 - [ ] Decide what we are aiming for now (the finals, a later hackathon, a portfolio piece) and
       update `HACKATHON.md` with whatever the Official Rules said, especially whether non-Meta
       models may stay in the main path.
-- [ ] Check Meta Model API access from India and Canada, and the credit balance.
-- [ ] Update "Current focus" in `CLAUDE.md` to point at this file.
+- [ ] Write the Anthropic credit balance into "Models and credits" below and set
+      `INSTEP_SPEND_CAP_USD` to match.
+- [ ] One real (uncached) Opus draft on the chosen tutorial to replace the cost estimates below
+      with a measured number from `.cache/spend.jsonl`.
+- [ ] Update "Current focus" and the Meta stack table in `CLAUDE.md` to point at this file.
 
-**Done when:** `pytest -q` and lint pass on a clean checkout, and we have written answers to the
-rules and credits questions.
+**Done when:** `pytest -q` and lint pass on a clean checkout, and the credit balance, the cap and
+one measured draft cost are written down.
 
 ## Phase 1: Close day 1, A'B and B on recorded footage (Arnav)
 
@@ -99,9 +104,9 @@ Replaces the hand-written AB Lessons with real ones.
 
 - [ ] **Ashmita:** record two or three real teacher sessions on the glasses, talking it through.
       Ideally a real parent for the demo task.
-- [ ] Understander takes the **whole** recording in one pass (Muse Spark has 1M context and
-      native video; Claude on keyframes plus transcript until then). Output is the same
-      DraftLesson the A' path makes, plus amounts and "wait until" moments.
+- [ ] Understander (Claude Opus) reads the whole recording in one pass as keyframes plus the
+      transcript (Claude takes images, not video). Output is the same DraftLesson the A' path
+      makes, plus amounts and "wait until" moments.
 - [ ] Provenance `teacher_device: glasses`, so `claims()` includes amount and wait_until.
 - [ ] Calibrate by replaying the teacher's own recording through the learner machinery (phase 2
       fills in the amounts and reference stills).
@@ -123,21 +128,7 @@ the hand-written one.
 **Done when:** a 10 to 20 minute raw recording becomes a 2 to 4 minute tutorial, and one stranger
 gets through it.
 
-## Phase 5: Swap stand-ins for Meta services (Arnav, once credits work)
-
-Config changes only. Nothing outside `providers/` should change.
-
-- [ ] `docs-scout` for current API shapes; `/meta-stack` for cost.
-- [ ] Muse Spark as understander and still judge (OpenAI-compatible, api.meta.ai/v1).
-- [ ] Hosted SAM 3.1 as segmenter.
-- [ ] Muse Voice Transcribe as transcriber.
-- [ ] Register each in `providers/registry.py`, keep fakes for tests, keep the cache in front.
-- [ ] Rerun every eval and every Lesson; record before and after numbers in this file.
-
-**Done when:** the main path runs with zero Anthropic, Whisper or Modal calls, and eval numbers
-are no worse (or the drop is explained).
-
-## Phase 6: Live loop on the glasses (Ashmita builds the app, Arnav builds the backend)
+## Phase 5: Live loop on the glasses (Ashmita builds the app, Arnav builds the backend)
 
 - [ ] Device `FrameSource`: Mock Device Kit first, then the real Wearables Device Access Toolkit
       720p stream, both through the same interface the simulator uses.
@@ -145,20 +136,22 @@ are no worse (or the drop is explained).
       and sends events back.
 - [ ] Spoken cues through the glasses' open-ear speakers (phone TTS to start).
 - [ ] Latency budget: frame to cue under about 1 s on the fast path. Measure it, show it.
-- [ ] Segmenter placement: hosted SAM 3.1 vs a GPU box; check `/gpu-budget` before any Modal use.
+- [ ] Segmenter speed: SAM 3 on the Mac is about 5 s a frame, too slow for live. Measure the
+      `gdino-sam2` fallback and a smaller detector against `/eval`; pick the fastest one that
+      holds the phase 1 numbers. No paid GPU.
 
 **Done when:** a learner wearing the glasses completes the demo task live, hearing cues, with the
 lesson waiting, replaying and catching a skip.
 
-## Phase 7: Voice questions (both, if time)
+## Phase 6: Voice questions (both, if time)
 
-- [ ] Learner asks a question ("how much salt?"); transcribe with Muse Voice Transcribe.
+- [ ] Learner asks a question ("how much salt?"); transcribe with local Whisper.
 - [ ] Answer from the Lesson (tips, amounts) plus the current still, in the teacher's voice.
 - [ ] Answer replays the teacher's clip for that step when that helps more than words.
 
 **Done when:** three scripted questions get correct, short answers during a live run.
 
-## Phase 8: Demo and submission (both)
+## Phase 7: Demo and submission (both)
 
 - [ ] Script the video from the outline in `HACKATHON.md` (best moment in the first 30 s).
 - [ ] Record with a real teacher and a real learner, lead with AB.
@@ -172,15 +165,65 @@ gone right twice in a row.
 
 ---
 
+## Models and credits (Anthropic only)
+
+There are no Meta services and no Modal. Claude through the Anthropic API is the only thing that
+costs money; segmentation, speech and voice run on the Mac. Every provider stays behind its
+interface in `providers/`, so a different model later is still a config change.
+
+| Role | Model | Where | Config |
+|---|---|---|---|
+| Understander (recording to DraftLesson, once per recording) | Claude Opus 5.5, effort `high` | Anthropic API | `INSTEP_DRAFT_MODEL`, `INSTEP_DRAFT_EFFORT` |
+| Still judge ("wait until", amounts, settle moments) | Claude Sonnet 5.5; try Haiku 5.5 | Anthropic API | `INSTEP_JUDGE_MODEL` |
+| Voice answers (phase 6) | Claude Sonnet 5.5 or Haiku 5.5 | Anthropic API | new provider, same pattern as the judge |
+| Segmenter (every sampled frame) | SAM 3 fp16; `gdino-sam2` fallback | Mac (MPS) | `INSTEP_SEGMENTER` |
+| Transcriber | Whisper large-v3-turbo (MLX) | Mac | `INSTEP_TRANSCRIBER` |
+| Spoken cues | Browser speech synthesis (macOS `say` for renders) | Mac / browser | none |
+
+Claude never sees video and never runs per frame (design principle 3). It gets keyframe grids plus
+the transcript once per recording, and single stills at the few moments that need judgement.
+
+### Where the credits go
+
+Estimates until phase 0 measures a real draft; replace them with numbers from
+`.cache/spend.jsonl`.
+
+| Use | Calls | Estimated cost |
+|---|---|---|
+| Draft one Lesson (Opus, about 120 frames plus transcript) | 1 per recording, then cached | $0.30 to $0.60 each |
+| All Lessons we expect (10 tutorials, a few prompt revisions, 3 to 5 teacher recordings) | about 30 to 40 | $10 to $25 |
+| Judge on one learner attempt (Sonnet, 2 stills a call) | a few per attempt | a few cents per attempt |
+| Eval reruns while tuning thresholds | cached unless a prompt or model changes | about $0 |
+| Live demo and rehearsals (judge plus voice) | tens per run | under $1 per run |
+
+Credit balance: **(fill in)**. Spend so far: $0 (no API calls logged yet; earlier drafts were
+written by Claude Code subagents through `prepare` / `ingest`).
+
+### Rules
+
+- Every call goes through the cache, keyed by its exact inputs. Never bypass it in a script.
+- `INSTEP_SPEND_CAP_USD` (default $15) is checked against the total in `.cache/spend.jsonl`
+  before each call; raise it on purpose, never to get one run through.
+- Ask before any command that makes more than a handful of uncached calls (a prompt change that
+  invalidates every Lesson, a batch over all tutorials).
+- Model or effort changes are eval changes: run `/eval` and `/lesson-review` before and after,
+  and log both here.
+- A prompt revision is drafted on one tutorial first, reviewed, and only then rerun on the rest.
+- Use the subagent path (`prepare`, then a subagent drafts, then `ingest`) for exploratory prompt
+  work; it costs no API credits.
+- Try Haiku 5.5 as the judge once phase 2 has labels. Keep it only if the not-yet and amount
+  numbers hold.
+
+---
+
 ## Risks
 
 | Risk | What we do |
 |---|---|
 | Glasses footage is slow to get | Chest-phone stand-ins for phases 1 and 2; hand-written AB Lessons until phase 3. |
-| Meta credits or API access do not work from India or Canada | Stand-ins stay behind the same interfaces; ask in office hours early. |
-| SAM too slow for live use | Lower the sampling rate; hosted SAM 3.1; fall back to the recorded demo with the simulator. |
+| Anthropic credits run out | Spend cap plus cache; subagent drafting for prompt work; Haiku judge if it holds up in the eval. |
+| SAM too slow for live use | Lower the sampling rate; `gdino-sam2` or a smaller detector; fall back to the recorded demo with the simulator. |
 | Thresholds tuned on too few clips | At least two labelled clips per behaviour; never tune on synthetic footage. |
-| Modal budget ($30) | `/gpu-budget` before any run; never keep a container warm; check `modal app list` after. |
 
 ## Eval log
 
