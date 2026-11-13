@@ -1,8 +1,8 @@
 # InStep plan
 
 The full vision, in phases. Each phase has an owner, what "done" means, and how we check it.
-Read `CLAUDE.md` for vocabulary (A, A', B, B', AB, AB', A'B) and design principles, and
-`HACKATHON.md` for the event, rubric and demo outline.
+Read `CLAUDE.md` for vocabulary (A, A', B, B', AB, AB', A'B) and design principles.
+`HACKATHON.md` is history from the event; its demo outline is still useful for phase 7.
 
 ## Who owns what
 
@@ -24,7 +24,11 @@ the person tuning detection is never the one who signs off the ground truth.
 
 ## Where we are (Nov 12)
 
-All work so far is from kickoff day (Oct 26). The Nov 4 submission deadline has passed.
+All work so far is from kickoff day (Oct 26). The hackathon is over (the Nov 4 deadline has
+passed) and **we no longer have Meta credits**: no Muse Spark, no hosted SAM 3.1, no Muse Voice
+Transcribe. We keep building for ourselves on Anthropic credits plus local models. The glasses
+and Meta's free developer tools (Wearables Device Access Toolkit, Mock Device Kit) need no
+credits and stay in the plan.
 
 Built:
 - Lesson schema v1 with provenance and claims (`lesson/schema.py`, `schemas/lesson.v1.json`).
@@ -74,14 +78,12 @@ the eval.
 ## Phase 0: Reset (both, short)
 
 - [ ] Make a fresh `.venv`, `pip install -e '.[dev]'`, tests and lint green.
-- [ ] Decide what we are aiming for now (the finals, a later hackathon, a portfolio piece) and
-      update `HACKATHON.md` with whatever the Official Rules said, especially whether non-Meta
-      models may stay in the main path.
+- [ ] Decide what we are aiming for now (a later hackathon, a portfolio piece, real users).
 - [ ] Write the Anthropic credit balance into "Models and credits" below and set
       `INSTEP_SPEND_CAP_USD` to match.
 - [ ] One real (uncached) Opus draft on the chosen tutorial to replace the cost estimates below
       with a measured number from `.cache/spend.jsonl`.
-- [ ] Update "Current focus" and the Meta stack table in `CLAUDE.md` to point at this file.
+- [x] Update "Current focus" and the Meta stack table in `CLAUDE.md` to point at this file.
 
 **Done when:** `pytest -q` and lint pass on a clean checkout, and the credit balance, the cap and
 one measured draft cost are written down.
