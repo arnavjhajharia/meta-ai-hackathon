@@ -90,11 +90,11 @@ the eval.
 
 ## Phase 0: Reset (both, short)
 
-- [ ] Make a fresh `.venv`, `pip install -e '.[dev]'`, tests and lint green.
+- [x] Make a fresh `.venv`, `pip install -e '.[dev]'`, tests and lint green.
 - [ ] Decide what we are aiming for now (a later hackathon, a portfolio piece, real users).
 - [x] Write the Anthropic credit balance into "Models and credits" below and set
       `INSTEP_SPEND_CAP_USD` to match.
-- [ ] One real (uncached) Opus draft on the chosen tutorial to replace the cost estimates below
+- [x] One real (uncached) Opus draft on the chosen tutorial to replace the cost estimates below
       with a measured number from `.cache/spend.jsonl`.
 - [x] Update "Current focus" and the Meta stack table in `CLAUDE.md` to point at this file.
 
@@ -311,19 +311,20 @@ the transcript once per recording, and single stills at the few moments that nee
 
 ### Where the credits go
 
-Estimates until phase 0 measures a real draft; replace them with numbers from
-`.cache/spend.jsonl`.
+The draft cost is measured (Nov 13, chai tutorial `xTGYLBQr56k`, prompt v3, 120 frames at
+512 px plus a Hindi transcript: 22.1K input, 4.8K cache write, 6.2K output tokens, 55 s). The
+other rows are still estimates; replace them from `.cache/spend.jsonl` as they get measured.
 
 | Use | Calls | Estimated cost |
 |---|---|---|
-| Draft one Lesson (Opus, about 120 frames plus transcript) | 1 per recording, then cached | $0.30 to $0.60 each |
-| All Lessons we expect (10 tutorials, a few prompt revisions, 3 to 5 teacher recordings) | about 30 to 40 | $10 to $25 |
+| Draft one Lesson (Opus, about 120 frames plus transcript) | 1 per recording, then cached | **$0.24 measured** |
+| All Lessons we expect (10 tutorials, a few prompt revisions, 3 to 5 teacher recordings) | about 30 to 40 | about $7 to $10 |
 | Judge on one learner attempt (Sonnet, 2 stills a call) | a few per attempt | a few cents per attempt |
 | Eval reruns while tuning thresholds | cached unless a prompt or model changes | about $0 |
 | Live demo and rehearsals (judge plus voice) | tens per run | under $1 per run |
 
-Credit balance: **$50**, and the spend cap is set to match. Spend so far: $0 (no API calls
-logged yet; earlier drafts were written by Claude Code subagents through `prepare` / `ingest`).
+Credit balance: **$50**, and the spend cap is set to match. Spend so far: $0.24 (one draft,
+Nov 13). Earlier drafts were written by Claude Code subagents through `prepare` / `ingest`.
 
 ### Rules
 
