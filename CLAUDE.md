@@ -136,9 +136,14 @@ that apply every turn; put procedures in skills.
 
 ## Team and data reality
 
-- Arnav (India) has no glasses and develops entirely against recorded footage.
-- The teammate (Canada) has the glasses, builds the phone app, and records teacher sessions and
-  learner attempts.
+- Arnav (India) has no glasses and develops entirely against recorded footage. He owns
+  understanding and detection: `teacher/`, `learner/`, `eval/`, the model and segmenter
+  providers, prompts, thresholds and credit spend.
+- Ashmita (Canada) has the glasses and owns capture and delivery: `sources/`, `sim/`, the phone
+  app, the live backend, AB' and voice. She also records teacher sessions and learner attempts,
+  writes the hand-written AB Lessons, and confirms the labels Arnav drafts.
+- Lanes and per-phase tasks are in "Who owns what" in `PLAN.md`. Changes to
+  `lesson/schema.py` or `learner/events.py` need a heads up to the other person.
 - Recordings live in `data/recordings/`, hand labels in `data/labels/`. Videos are not committed.
 - Synthetic test footage is useful for plumbing and regression tests, but it is far cleaner than
   reality. Never tune thresholds on synthetic data.
