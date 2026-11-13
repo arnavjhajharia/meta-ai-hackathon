@@ -1,5 +1,8 @@
 # One line per recording: filename, who, what happened, anything odd.
 # Names: tutorial_<task>_youtube_<videoid>.mp4, learner_<task>_<yyyymmdd>_standin-chest.mp4
+#        teacher_<task>_<yyyymmdd>_standin-chest.mp4 (our own teacher takes)
+#        learner_<task>_<yyyymmdd>_take<N>_standin-chest.mp4 (several attempts on one day)
+# Say what each take was meant to show and roughly when ("take2: skipped ginger, ~1:10 too many leaves").
 tutorial_masala-chai_youtube_xTGYLBQr56k.mp4: youtube https://www.youtube.com/watch?v=xTGYLBQr56k, mixed, hi, Brief talking-head intro, then close-ups of ingredients, crushing ginger and cardamom, pot boiling on the stove, served in kulhads; Hindi voiceover.
 tutorial_masala-chai_youtube_PBxQdK-NrRc.mp4: youtube https://www.youtube.com/watch?v=PBxQdK-NrRc, closeup, en, Close and over-the-pot shots: grating ginger, roasting whole spices, milk boiling, pouring into glasses; English on-screen captions over music, no speech.
 tutorial_paper-boat_youtube_fqw8nSKPpuE.mp4: youtube https://www.youtube.com/watch?v=fqw8nSKPpuE, overhead_hands, none, Top-down hands only on a plain grey table folding orange paper into a boat; music, no speech.

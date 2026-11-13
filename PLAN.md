@@ -103,8 +103,9 @@ one measured draft cost are written down.
 
 ## Phase 1: Close day 1, A'B and B on recorded footage (both)
 
-Pick **one task** for everything (masala chai fits the story; the paper boat is easier to see).
-Use the same task for the tutorial, the hand-written Lesson and the learner attempts.
+The task is **masala chai** (decided Nov 13). Use it for the tutorial (`xTGYLBQr56k`, the one
+Arnav measured the draft on), the hand-written Lesson and the learner attempts, following the
+same recipe and step order as the A'B Lesson.
 
 Arnav:
 - [ ] Generate the A'B Lesson from the chosen tutorial, run `/lesson-review`, commit it to
@@ -114,11 +115,13 @@ Arnav:
 - [ ] `finish()`: emit a final event when the recording ends partway through (unfinished step).
 
 Ashmita:
-- [ ] Record two or three learner attempts of the chosen task (chest phone stand-in is fine, mark
-      it in the filename). Between them: a deliberate skip, a stall, a clearly wrong amount, and
-      reaching in too early on a "wait until" step (phase 2 needs the last two).
-- [ ] Record one teacher take of the same task. The AB Lesson's reference frames and the
-      teacher's amounts come from it.
+- [ ] Record three learner attempts (chest phone stand-in, named as in `notes.txt`): take1 clean;
+      take2 a skipped step and a clearly wrong amount; take3 a stall of 40 s or more, reaching in
+      before the chai rises, and a few seconds looking away (phase 2 needs the amount and the
+      early reach).
+- [ ] Record one teacher take, saying the tips out loud. The AB Lesson's reference frames and
+      the teacher's amounts come from it.
+- [ ] One line per recording in `notes.txt`; share the videos with Arnav (they are not committed).
 - [ ] Hand-write the AB Lesson (`authored: hand_written`) with at least one amount and one
       "wait until" step, run `/lesson-review`, commit it to `data/lessons/hand/`.
 - [ ] Confirm every label row Arnav drafted, then commit them to `data/labels/`.
@@ -129,7 +132,7 @@ Order:
 
 | # | Who | Step | Waits on |
 |---|---|---|---|
-| 1.1 | Both | Pick the one task (chai or paper boat) | |
+| 1.1 | Both | ~~Pick the one task~~ Done: masala chai | |
 | 1.2 | Arnav | A'B Lesson from the tutorial; `finish()` (heads up if it adds an event kind) | 1.1 |
 | 1.3 | Ashmita | Learner attempts (skip, stall, wrong amount, early reach) and one teacher take | 1.1 |
 | 1.4 | Both | **Agree** how a `FrameSource` gives `measure_clip` a cache key | |
