@@ -8,9 +8,10 @@ being recorded, understands what they did (including the small things they never
 loud), and turns it into a lesson someone else can follow, either as a watchable tutorial or
 live through Meta Ray-Ban glasses that watch the learner's hands.
 
-This is our entry for the Meta Global AI Developer Hackathon, Indie track. Two builders,
-submissions due **Nov 4, 9 PM ET**. Judged on Impact 30%, use of Meta AI tooling 25%,
-Demo 25%, Technical depth 20%. Every decision should serve a live demo that works on stage.
+It started as our entry for the Meta Global AI Developer Hackathon (Indie track, closed Nov 4).
+We now build it for ourselves: two builders, no deadline, no Meta credits. The only paid
+service is the Anthropic API. Every decision should still serve a live demo that works every
+time. The roadmap is `PLAN.md`.
 
 ## Vocabulary
 
@@ -34,44 +35,35 @@ Use these names in code, commits, tests and conversation.
 
 > Edit this section at the start of each session. Everything else in this file is stable.
 
-**Today: B is fixed (the learner wears glasses). We build AB and A'B.**
+**Now: `PLAN.md` phases 0 and 1. B is fixed (the learner wears glasses); close out AB and A'B
+on recorded footage.**
 
-Glasses footage is hard to get, so the teacher side is split:
-- **A (glasses teacher)**: not built today. We hand-write a few Lessons as if a glasses teacher
-  made them (`authored: hand_written`), with amounts and "wait until" steps.
-- **A' (phone teacher)**: built for real, nothing hand-written. A YouTube tutorial goes in and a
-  Lesson comes out (Whisper, then one Claude pass, then SAM snaps step times). Coarse claims only.
+The schema, the A'B pipeline, the step machine and the simulator exist. Still missing (phase 1):
+- One task for everything (chai or paper boat): its A'B Lesson generated, reviewed and committed.
+- A hand-written AB Lesson (`authored: hand_written`) with an amount and a "wait until" step.
+- At least two labelled learner clips, and baseline `/eval` numbers against both Lessons.
+- `StepMachine.finish()`, and `FrameSource` wired into the simulator and `cli learn`.
 
-Done for today means:
-1. A written, versioned Lesson schema (the contract every other part reads and writes).
-2. **A'B**: a YouTube tutorial goes in and a Lesson comes out (steps, objects to track, tips in
-   the teacher's words, step times snapped by the segmenter).
-3. **B**: a learner attempt (Arnav, phone strapped at the chest) runs against both a hand-written
-   AB Lesson and the A'B Lesson and produces the right events (advance, skip, stall, and for AB
-   only amount and not yet) on at least one labelled clip.
-4. A web glasses simulator replays the attempt in real time with captions and spoken cues. It
-   reads frames through a `FrameSource`, so Meta's Mock Device Kit plugs in later.
-
-Use one task for all three (tutorial, hand-written Lesson, attempts) so one attempt tests both
-modes.
-
-Not today: building the A pipeline, AB', the phone app, voice questions.
+Not now: the A pipeline, AB', the phone app, voice questions.
 
 YouTube tutorials are for development only; the demo uses our own recordings. Chest-phone
 recordings are stand-ins for glasses: mark them in their filenames.
 
-## The Meta stack and today's stand-ins
+## The model stack
 
-| Meta role | What it does for us | Stand-in until credits arrive | Notes |
+| Role | What it does for us | Model | Where |
 |---|---|---|---|
-| Ray-Ban glasses | First-person video (720p stream, high-res stills), mics, open-ear speakers, via the Wearables Device Access Toolkit | Recorded footage; Mock Device Kit for app work | Audio streaming and photo capture are experimental in the toolkit |
-| Muse Spark | Understands the whole teacher recording in one pass (1M context, takes video); judges "wait until" moments from stills | Claude via the Anthropic API | Meta Model API is OpenAI-compatible (api.meta.ai/v1) |
-| SAM 3.1 | Finds and tracks hands and objects from text prompts | SAM 3 on a Modal GPU, or on the Mac (slow) | Hosted sam-3.1 exists on Meta Model API |
-| Muse Voice Transcribe | Teacher narration, learner speech | Local Whisper | No open weights, API only |
+| Glasses | First-person video, mics, open-ear speakers (Ray-Bans via the Wearables Device Access Toolkit) | Recorded footage for now; Mock Device Kit for app work | Teammate's device |
+| Understander | Reads a whole teacher recording once (keyframe grids plus transcript; Claude takes images, not video) | Claude Opus 5.5 | Anthropic API |
+| Still judge | "Wait until" and amount checks on single stills at settle moments | Claude Sonnet 5.5 (Haiku 5.5 if the eval holds) | Anthropic API |
+| Segmenter | Finds and tracks hands and objects every sampled frame | SAM 3 fp16; `gdino-sam2` fallback | Mac, local |
+| Transcriber | Teacher narration, learner speech | Whisper large-v3-turbo (MLX) | Mac, local |
 
-**Every vendor SDK lives behind one interface per role.** Swapping a stand-in for the Meta
-service must be a config change, never a code change elsewhere. Tests always run on fake
-providers with no network and no GPU.
+Details, cost estimates and spend rules: "Models and credits" in `PLAN.md`.
+
+**Every vendor SDK lives behind one interface per role.** Changing a model must be a config
+change, never a code change elsewhere. Tests always run on fake providers with no network and
+no GPU.
 
 ## Design principles
 
@@ -121,8 +113,8 @@ Use these instead of improvising the same workflow each time.
 | `eval` | Any change to detection logic, thresholds, calibration or prompts |
 | `label` | A new learner recording needs labels (human confirms every row) |
 | `phone-preview` | Before calling any web page done (the AB' player first) |
-| `meta-stack` | Writing provider code, estimating cost, kickoff-day swaps |
-| `gpu-budget` | Before any Modal deploy, run, or batch segmentation |
+
+`meta-stack` and `gpu-budget` are from the hackathon (Meta services, Modal) and no longer apply.
 
 Subagents: `frame-critic` (independent read of the images when a theory has already formed) and
 `docs-scout` (fetch official docs instead of guessing an API; keeps long docs out of context).
@@ -134,12 +126,13 @@ that apply every turn; put procedures in skills.
 
 ## Money and credits
 
-- Anthropic credits: fine for development, but every call goes through the cache. Ask before any
-  command that makes more than a handful of uncached model calls.
-- Modal: **$30 total**. L4 GPU only (about $0.80/hour) unless told otherwise. Ask before
-  `modal deploy` or `modal run`. Never keep a container warm. After any session that used Modal,
-  run `modal app list` and confirm nothing is still running. Report estimated spend.
-- Meta credits are not here yet. Do not write code that assumes them.
+- Anthropic credits are the only money we spend. Every call goes through the cache, and
+  `INSTEP_SPEND_CAP_USD` (default $15) stops calls once `.cache/spend.jsonl` reaches it. Never
+  raise the cap just to get one run through.
+- Ask before any command that makes more than a handful of uncached model calls.
+- Use the subagent drafting path (`prepare`, a subagent drafts, `ingest`) for exploratory prompt
+  work; it costs no credits.
+- No Meta services, no Modal, no paid GPU. Segmentation and speech run on the Mac.
 
 ## Team and data reality
 
