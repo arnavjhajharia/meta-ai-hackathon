@@ -24,8 +24,9 @@ from instep.learner.machine import StepMachine
 from instep.learner.measure import measure_clip
 from instep.lesson.io import load_lesson
 from instep.lesson.schema import Lesson, Step
-from instep.media.frames import frame_at, read_frames, to_jpeg
+from instep.media.frames import frame_at, to_jpeg
 from instep.providers import registry
+from instep.sources.base import FileReplay
 
 STATIC = Path(__file__).parent / "static"
 RECORDINGS = ROOT / "data" / "recordings"
@@ -102,14 +103,15 @@ def media(name: str) -> FileResponse:
 class Session:
     def __init__(self, clip: Path, lesson: Lesson, use_judge: bool):
         cfg = Config.from_env()
-        self.clip, self.lesson = clip, lesson
+        self.lesson = lesson
+        self.source = FileReplay(clip, cfg.learner_fps, SEG_WIDTH)
         self.frames = measure_clip(
             clip,
             lesson,
             registry.segmenter(cfg),
-            read_frames(clip, cfg.learner_fps, SEG_WIDTH),
-            cfg.learner_fps,
-            SEG_WIDTH,
+            ((f.t_s, f.image) for f in self.source.frames()),
+            self.source.fps,
+            self.source.width,
         ).frames
         self.judge = registry.judge(cfg) if use_judge else None
         rec = lesson.provenance.recording
@@ -120,7 +122,7 @@ class Session:
         self.machine = StepMachine(
             self.lesson,
             judge=self.judge,
-            still_at=lambda t: to_jpeg(frame_at(self.clip, t, 768), 80),
+            still_at=lambda t: to_jpeg(self.source.still(t), 80),
             reference_for=self._reference,
         )
         self.i = 0

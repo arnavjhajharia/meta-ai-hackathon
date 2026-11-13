@@ -130,23 +130,25 @@ def tutorial_path(lesson: Lesson) -> Path | None:
 def learn(clip: Path, lesson_path: Path, use_judge: bool = True, cfg: Config | None = None):
     from instep.learner.machine import StepMachine
     from instep.learner.measure import measure_clip
+    from instep.sources.base import FileReplay
 
     cfg = cfg or Config.from_env()
     clip = clip.resolve()
     lesson = load_lesson(lesson_path)
+    source = FileReplay(clip, cfg.learner_fps, SEG_WIDTH)
     measures = measure_clip(
         clip,
         lesson,
         registry.segmenter(cfg),
-        read_frames(clip, cfg.learner_fps, SEG_WIDTH),
-        cfg.learner_fps,
-        SEG_WIDTH,
+        ((f.t_s, f.image) for f in source.frames()),
+        source.fps,
+        source.width,
         progress=True,
     )
     tutorial = tutorial_path(lesson)
 
     def still_at(t: float) -> bytes:
-        return to_jpeg(frame_at(clip, t, 768), 80)
+        return to_jpeg(source.still(t), 80)
 
     def reference_for(step: Step) -> bytes | None:
         t = step.completion.reference_frame_s

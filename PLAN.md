@@ -110,6 +110,9 @@ same recipe and step order as the A'B Lesson.
 Arnav:
 - [ ] Generate the A'B Lesson from the chosen tutorial, run `/lesson-review`, commit it to
       `data/lessons/generated/`.
+- [ ] Decide how one clip is labelled against two Lessons: `cli learn` reads one label file per
+      clip (`data/labels/<clip stem>.json`), but each file names a single `lesson_id`. Either
+      per-Lesson label paths, or step ids the two chai Lessons share.
 - [ ] Draft labels for the learner clips with `/label`.
 - [ ] Run `/eval` against both Lessons and record baseline numbers in `runs/` and in this file.
 - [ ] `finish()`: emit a final event when the recording ends partway through (unfinished step).
@@ -125,8 +128,9 @@ Ashmita:
 - [ ] Hand-write the AB Lesson (`authored: hand_written`) with at least one amount and one
       "wait until" step, run `/lesson-review`, commit it to `data/lessons/hand/`.
 - [ ] Confirm every label row Arnav drafted, then commit them to `data/labels/`.
-- [ ] Add a file `FrameSource` in `sources/` and wire it into `sim/server.py` and `cli learn`, so
-      nothing reads video files directly except that source. Tests on a tiny synthetic clip.
+- [x] Add a file `FrameSource` in `sources/` and wire it into `sim/server.py` and `cli learn`, so
+      nothing reads learner video directly except that source. Tests on a tiny synthetic clip.
+      (`FileReplay` in `sources/base.py`; teacher-side reads of the tutorial stay as they were.)
 
 Order:
 
@@ -135,8 +139,8 @@ Order:
 | 1.1 | Both | ~~Pick the one task~~ Done: masala chai | |
 | 1.2 | Arnav | A'B Lesson from the tutorial; `finish()` (heads up if it adds an event kind) | 1.1 |
 | 1.3 | Ashmita | Learner attempts (skip, stall, wrong amount, early reach) and one teacher take | 1.1 |
-| 1.4 | Both | **Agree** how a `FrameSource` gives `measure_clip` a cache key | |
-| 1.5 | Ashmita | File `FrameSource`, wired into the simulator and `cli learn` | 1.4 |
+| 1.4 | Both | ~~**Agree** how a `FrameSource` gives `measure_clip` a cache key~~ Done: file replays keep `measure_clip`'s clip-hash key unchanged; live sources do not cache (phase 5 adds a per-frame call) | |
+| 1.5 | Ashmita | ~~File `FrameSource`, wired into the simulator and `cli learn`~~ Done: `FileReplay` | 1.4 |
 | 1.6 | Ashmita | Hand-write the AB Lesson, reference frames pointing at the teacher take | 1.3 |
 | 1.7 | Arnav | `/lesson-review` on the AB Lesson: objects the segmenter can find, sensible completions | 1.6 |
 | 1.8 | Arnav | Draft labels for the learner clips | 1.3 |
