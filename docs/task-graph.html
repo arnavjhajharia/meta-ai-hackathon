@@ -28,15 +28,16 @@
       <span><i class="dot" style="background:#89b4fa"></i>Arnav</span>
       <span><i class="dot" style="background:#f9e2af"></i>Ashmita</span>
       <span><i class="dot" style="background:#cba6f7"></i>Both</span>
-      <span><i class="dot" style="background:#a6e3a1"></i>Arnav-only lane (highlight)</span>
+      <span><i class="dot" style="background:#a6e3a1"></i>Arnav lane</span>
+      <label style="margin-left:12px;font-size:12px"><input type="checkbox" id="solo" /> Solo subgraph (no Ashmita deps)</label>
     </div>
   </header>
   <div id="network"></div>
   <aside>
-    <h2>Arnav topo order (tasks that don’t need Ashmita to execute — Ashmita deps shown as blockers)</h2>
+    <h2>Arnav solo topo (completable without any Ashmita deliverable)</h2>
+    <p id="solo-topo"></p>
+    <h2>Full Arnav lane (grey = blocked on Ashmita)</h2>
     <p id="topo"></p>
-    <h2>Runnable now (phase 0 done; no Ashmita footage yet)</h2>
-    <p id="now"></p>
   </aside>
 </div>
 <script>
@@ -111,9 +112,11 @@ const visNodes = nodes.map(n => ({
   size: n.arnav ? 22 : 18,
 }));
 
+const dataNodes = new vis.DataSet(visNodes);
+const dataEdges = new vis.DataSet(edges.map(e => ({ ...e, arrows: 'to', color: { color: '#585b70' }, smooth: { type: 'cubicBezier' } })));
 const net = new vis.Network(document.getElementById('network'), {
-  nodes: new vis.DataSet(visNodes),
-  edges: new vis.DataSet(edges.map(e => ({ ...e, arrows: 'to', color: { color: '#585b70' }, smooth: { type: 'cubicBezier' } })))
+  nodes: dataNodes,
+  edges: dataEdges
 }, {
   physics: { barnesHut: { gravitationalConstant: -8000, springLength: 120 }, stabilization: { iterations: 200 } },
   interaction: { hover: true, tooltipDelay: 100 },
@@ -146,8 +149,31 @@ function topoSort(ids, predMap) {
   return out;
 }
 
+const ashmitaIds = new Set(nodes.filter(n => n.who === 'ashmita').map(n => n.id));
+const hasAshmitaPred = (id) => {
+  const seen = new Set();
+  const stack = edges.filter(e => e.to === id).map(e => e.from);
+  while (stack.length) {
+    const u = stack.pop();
+    if (seen.has(u)) continue;
+    seen.add(u);
+    if (ashmitaIds.has(u)) return true;
+    edges.filter(e => e.to === u).forEach(e => stack.push(e.from));
+  }
+  return false;
+};
+const soloIds = new Set([...arnavIds, ...nodes.filter(n => n.who === 'both').map(n => n.id)]
+  .filter(id => !hasAshmitaPred(id)));
+const soloPreds = Object.fromEntries([...soloIds].map(id => [id, edges.filter(e => e.to === id && soloIds.has(e.from)).map(e => e.from)]));
+const soloTopo = topoSort(soloIds, soloPreds);
+
 const arnavTopo = topoSort(arnavIds, preds);
 const extBlock = id => edges.filter(e => e.to === id && !arnavIds.has(e.from)).map(e => e.from);
+
+document.getElementById('solo-topo').innerHTML = soloTopo.map((id, i) => {
+  const n = nodes.find(x => x.id === id);
+  return `<span class="arnav-path">${i + 1}. ${id}</span> — ${n.label.replace(/\n/g, ' ')}`;
+}).join('<br>');
 
 document.getElementById('topo').innerHTML = arnavTopo.map((id, i) => {
   const n = nodes.find(x => x.id === id);
@@ -156,19 +182,18 @@ document.getElementById('topo').innerHTML = arnavTopo.map((id, i) => {
   return `<span class="arnav-path">${i + 1}. ${id}</span> — ${n.label.replace(/\n/g, ' ')}${block}`;
 }).join('<br>');
 
-const done = new Set(['0']);
-const runnable = nodes.filter(n => n.arnav && !done.has(n.id)).filter(n => {
-  const incoming = edges.filter(e => e.to === n.id);
-  return incoming.every(e => arnavIds.has(e.from) || done.has(e.from));
-});
-// After 1.1 picked + 0 done: 1.2 if 1.1 done; 2.1 both no deps from open phases
-const now = [];
-if (!done.has('1.1')) now.push('1.1 pick task (quick sync with Ashmita)');
-now.push('1.2 A\'B Lesson + finish() — after 1.1, no footage needed');
-now.push('2.1 agree amount/not_yet schema — parallel, no footage');
-now.push('5.1 agree live measure API — parallel');
-now.push('6.1 agree voice answer API — parallel');
-document.getElementById('now').innerHTML = now.map(s => `• ${s}`).join('<br>');
+function applySolo(on) {
+  dataNodes.getIds().forEach(id => {
+    const show = !on || soloIds.has(id);
+    dataNodes.update({ id, hidden: !show });
+  });
+  dataEdges.getIds().forEach(id => {
+    const e = dataEdges.get(id);
+    const show = !on || (soloIds.has(e.from) && soloIds.has(e.to));
+    dataEdges.update({ id, hidden: !show });
+  });
+}
+document.getElementById('solo').addEventListener('change', (ev) => applySolo(ev.target.checked));
 </script>
 </body>
 </html>
