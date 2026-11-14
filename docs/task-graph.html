@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>InStep — task graph</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e2e; color: #cdd6f4; }
+    #wrap { display: flex; flex-direction: column; height: 100vh; }
+  header { padding: 12px 16px; border-bottom: 1px solid #45475a; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    h1 { margin: 0; font-size: 1rem; font-weight: 600; }
+    .legend span { margin-right: 14px; font-size: 12px; }
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+    #network { flex: 1; min-height: 0; }
+    aside { max-height: 28vh; overflow: auto; padding: 12px 16px; border-top: 1px solid #45475a; font-size: 13px; line-height: 1.5; }
+    aside h2 { margin: 0 0 8px; font-size: 13px; color: #89b4fa; }
+    .arnav-path { color: #a6e3a1; }
+    .blocked { color: #f38ba8; }
+    a { color: #89b4fa; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>InStep phases — dependency graph (from PLAN.md)</h1>
+    <div class="legend">
+      <span><i class="dot" style="background:#89b4fa"></i>Arnav</span>
+      <span><i class="dot" style="background:#f9e2af"></i>Ashmita</span>
+      <span><i class="dot" style="background:#cba6f7"></i>Both</span>
+      <span><i class="dot" style="background:#a6e3a1"></i>Arnav-only lane (highlight)</span>
+    </div>
+  </header>
+  <div id="network"></div>
+  <aside>
+    <h2>Arnav topo order (tasks that don’t need Ashmita to execute — Ashmita deps shown as blockers)</h2>
+    <p id="topo"></p>
+    <h2>Runnable now (phase 0 done; no Ashmita footage yet)</h2>
+    <p id="now"></p>
+  </aside>
+</div>
+<script>
+const nodes = [
+  { id: '0', label: 'Phase 0\nreset', who: 'both', phase: 0 },
+  { id: '1.1', label: '1.1 pick task', who: 'both', phase: 1 },
+  { id: '1.2', label: "1.2 A'B Lesson\n+ finish()", who: 'arnav', phase: 1, arnav: true },
+  { id: '1.3', label: '1.3 learner +\nteacher recordings', who: 'ashmita', phase: 1 },
+  { id: '1.4', label: '1.4 agree\nFrameSource', who: 'both', phase: 1 },
+  { id: '1.5', label: '1.5 FrameSource\nwire sim/cli', who: 'ashmita', phase: 1 },
+  { id: '1.6', label: '1.6 hand AB\nLesson', who: 'ashmita', phase: 1 },
+  { id: '1.7', label: '1.7 review AB\nLesson', who: 'arnav', phase: 1, arnav: true },
+  { id: '1.8', label: '1.8 draft labels', who: 'arnav', phase: 1, arnav: true },
+  { id: '1.9', label: '1.9 confirm\nlabels', who: 'ashmita', phase: 1 },
+  { id: '1.10', label: '1.10 eval\nbaseline', who: 'arnav', phase: 1, arnav: true },
+  { id: '2.1', label: '2.1 agree amount\n+ not_yet', who: 'both', phase: 2 },
+  { id: '2.2', label: '2.2 amounts +\njudged not_yet', who: 'arnav', phase: 2, arnav: true },
+  { id: '2.3', label: '2.3 sim AB\nevents UI', who: 'ashmita', phase: 2 },
+  { id: '2.4', label: '2.4 phone app\nMock Kit', who: 'ashmita', phase: 2 },
+  { id: '2.5a', label: '2.5 draft amt\nlabels', who: 'arnav', phase: 2, arnav: true },
+  { id: '2.5b', label: '2.5 confirm\namt labels', who: 'ashmita', phase: 2 },
+  { id: '2.6', label: '2.6 eval phase 2', who: 'arnav', phase: 2, arnav: true },
+  { id: '3.1', label: '3.1 glasses\nteacher sessions', who: 'ashmita', phase: 3 },
+  { id: '3.2', label: '3.2 A pipeline\n→ AB Lesson', who: 'arnav', phase: 3, arnav: true },
+  { id: '4.1', label: "4.1 AB' proto", who: 'ashmita', phase: 4 },
+  { id: '4.2', label: "4.2 AB' real", who: 'ashmita', phase: 4 },
+  { id: '5.1', label: '5.1 agree live\nmeasure', who: 'both', phase: 5 },
+  { id: '5.2', label: '5.2 fast path +\nsegmenter', who: 'arnav', phase: 5, arnav: true },
+  { id: '5.3', label: '5.3 live backend\n+ device src', who: 'ashmita', phase: 5 },
+  { id: '5.4', label: '5.4 integrate +\nlatency measure', who: 'both', phase: 5 },
+  { id: '6.1', label: '6.1 agree voice\nanswer API', who: 'both', phase: 6 },
+  { id: '6.2', label: '6.2 answer\nquality', who: 'arnav', phase: 6, arnav: true },
+  { id: '6.3', label: '6.3 voice E2E', who: 'ashmita', phase: 6 },
+  { id: '7.1', label: '7.1 eval +\narchitecture', who: 'arnav', phase: 7, arnav: true },
+  { id: '7.2', label: '7.2 video +\nREADME', who: 'ashmita', phase: 7 },
+  { id: '7.3', label: '7.3 clean repo +\nrehearse', who: 'both', phase: 7 },
+];
+
+const edges = [
+  { from: '0', to: '1.1' },
+  { from: '1.1', to: '1.2' }, { from: '1.1', to: '1.3' },
+  { from: '1.4', to: '1.5' },
+  { from: '1.3', to: '1.6' }, { from: '1.6', to: '1.7' },
+  { from: '1.3', to: '1.8' }, { from: '1.8', to: '1.9' },
+  { from: '1.2', to: '1.10' }, { from: '1.7', to: '1.10' }, { from: '1.9', to: '1.10' },
+  { from: '2.1', to: '2.2' }, { from: '1.6', to: '2.2' },
+  { from: '2.1', to: '2.3' },
+  { from: '1.3', to: '2.5a' }, { from: '2.5a', to: '2.5b' },
+  { from: '2.2', to: '2.6' }, { from: '2.5b', to: '2.6' },
+  { from: '3.1', to: '3.2' }, { from: '2.2', to: '3.2' },
+  { from: '4.1', to: '4.2' }, { from: '3.2', to: '4.2' },
+  { from: '5.1', to: '5.2' }, { from: '5.1', to: '5.3' }, { from: '2.4', to: '5.3' },
+  { from: '5.2', to: '5.4' }, { from: '5.3', to: '5.4' },
+  { from: '6.1', to: '6.2' }, { from: '6.1', to: '6.3' }, { from: '5.3', to: '6.3' },
+  { from: '2.6', to: '7.1' },
+  { from: '7.1', to: '7.2' }, { from: '5.4', to: '7.2' },
+  { from: '7.2', to: '7.3' },
+];
+
+const colors = { arnav: '#89b4fa', ashmita: '#f9e2af', both: '#cba6f7' };
+const visNodes = nodes.map(n => ({
+  id: n.id,
+  label: n.label,
+  color: {
+    background: n.arnav ? '#313244' : colors[n.who],
+    border: n.arnav ? '#a6e3a1' : colors[n.who],
+    highlight: { background: '#45475a', border: '#fff' }
+  },
+  borderWidth: n.arnav ? 3 : 1,
+  font: { color: '#cdd6f4', size: 11, face: 'system-ui' },
+  shape: 'dot',
+  size: n.arnav ? 22 : 18,
+}));
+
+const net = new vis.Network(document.getElementById('network'), {
+  nodes: new vis.DataSet(visNodes),
+  edges: new vis.DataSet(edges.map(e => ({ ...e, arrows: 'to', color: { color: '#585b70' }, smooth: { type: 'cubicBezier' } })))
+}, {
+  physics: { barnesHut: { gravitationalConstant: -8000, springLength: 120 }, stabilization: { iterations: 200 } },
+  interaction: { hover: true, tooltipDelay: 100 },
+  layout: { improvedLayout: true }
+});
+
+// Topo on Arnav-only nodes
+const arnavIds = new Set(nodes.filter(n => n.arnav).map(n => n.id));
+const preds = Object.fromEntries([...arnavIds].map(id => [id, []]));
+edges.forEach(e => {
+  if (arnavIds.has(e.to) && arnavIds.has(e.from)) preds[e.to].push(e.from);
+});
+
+function topoSort(ids, predMap) {
+  const indeg = {}; ids.forEach(id => { indeg[id] = 0; });
+  ids.forEach(id => predMap[id].forEach(p => { if (ids.has(p)) indeg[id]++; }));
+  const q = [...ids].filter(id => indeg[id] === 0).sort();
+  const out = [];
+  while (q.length) {
+    const u = q.shift();
+    out.push(u);
+    ids.forEach(v => {
+      if (predMap[v].includes(u)) {
+        indeg[v]--;
+        if (indeg[v] === 0) q.push(v);
+        q.sort();
+      }
+    });
+  }
+  return out;
+}
+
+const arnavTopo = topoSort(arnavIds, preds);
+const extBlock = id => edges.filter(e => e.to === id && !arnavIds.has(e.from)).map(e => e.from);
+
+document.getElementById('topo').innerHTML = arnavTopo.map((id, i) => {
+  const n = nodes.find(x => x.id === id);
+  const ext = extBlock(id);
+  const block = ext.length ? ` <span class="blocked">(needs Ashmita/both: ${ext.join(', ')})</span>` : '';
+  return `<span class="arnav-path">${i + 1}. ${id}</span> — ${n.label.replace(/\n/g, ' ')}${block}`;
+}).join('<br>');
+
+const done = new Set(['0']);
+const runnable = nodes.filter(n => n.arnav && !done.has(n.id)).filter(n => {
+  const incoming = edges.filter(e => e.to === n.id);
+  return incoming.every(e => arnavIds.has(e.from) || done.has(e.from));
+});
+// After 1.1 picked + 0 done: 1.2 if 1.1 done; 2.1 both no deps from open phases
+const now = [];
+if (!done.has('1.1')) now.push('1.1 pick task (quick sync with Ashmita)');
+now.push('1.2 A\'B Lesson + finish() — after 1.1, no footage needed');
+now.push('2.1 agree amount/not_yet schema — parallel, no footage');
+now.push('5.1 agree live measure API — parallel');
+now.push('6.1 agree voice answer API — parallel');
+document.getElementById('now').innerHTML = now.map(s => `• ${s}`).join('<br>');
+</script>
+</body>
+</html>
