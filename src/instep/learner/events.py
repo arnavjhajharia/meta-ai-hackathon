@@ -22,6 +22,11 @@ def needs_claim(kind: str, detail: dict) -> str | None:
     return NEEDS_CLAIM.get(kind)
 
 
+# detail shapes agreed in phase 2.1 (see docs/contracts-phase2.md when present)
+AMOUNT_DETAIL_KEYS = frozenset({"object", "measure", "learner_value", "teacher_value", "ok"})
+JUDGED_NOT_YET_DETAIL_KEYS = frozenset({"judged", "condition"})
+
+
 class Event(Contract):
     t_s: float = Field(ge=0)
     kind: EventKind

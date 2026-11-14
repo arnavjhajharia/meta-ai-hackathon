@@ -151,7 +151,11 @@ def learn(clip: Path, lesson_path: Path, use_judge: bool = True, cfg: Config | N
         return to_jpeg(source.still(t), 80)
 
     def reference_for(step: Step) -> bytes | None:
-        t = step.completion.reference_frame_s
+        t = None
+        if step.wait_until and step.wait_until.reference_frame_s is not None:
+            t = step.wait_until.reference_frame_s
+        elif step.completion.reference_frame_s is not None:
+            t = step.completion.reference_frame_s
         if tutorial is None or t is None or not tutorial.exists():
             return None
         return to_jpeg(frame_at(tutorial, t, 768), 80)
@@ -164,6 +168,8 @@ def learn(clip: Path, lesson_path: Path, use_judge: bool = True, cfg: Config | N
     )
     for m in measures.frames:
         machine.feed(m)
+    if measures.frames:
+        machine.finish(measures.frames[-1].t_s)
     out = RUNS / "learn" / clip.stem / lesson.id
     out.mkdir(parents=True, exist_ok=True)
     (out / "events.json").write_text(json.dumps([e.model_dump() for e in machine.events], indent=2))

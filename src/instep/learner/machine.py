@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 from instep.learner.events import Event, needs_claim
 from instep.learner.measure import FrameMeasure
-from instep.lesson.schema import Lesson, Step
+from instep.lesson.schema import Claim, Lesson, Step
 from instep.providers.base import StillJudge
 
 
@@ -70,6 +70,7 @@ class StepMachine:
         self.claims = self.lesson.claims()
         self.judge_calls = 0
         self.wait_until_t: float | None = None  # a stated timed wait is running until then
+        self.pending_wait = False  # object action done; judging wait_until before advance
         self.last_not_yet_t = -1e9
 
     # ---------- public ----------
@@ -110,6 +111,8 @@ class StepMachine:
 
         if self._timed_wait(m):
             return self.events[start:]
+        if self._judged_wait_until(m):
+            return self.events[start:]
         if not self._object_progress(m):
             self._judge_progress(m)
         self._stall(m)
@@ -148,8 +151,23 @@ class StepMachine:
         return True
 
     def finish(self, t_s: float) -> list[Event]:
-        """End of the recording: nothing more to decide."""
-        return []
+        """End of the recording: mark an unfinished step when the clip stops early."""
+        start = len(self.events)
+        if self.done:
+            return []
+        cur = self.current
+        if cur is None:
+            return []
+        left = len(self.lesson.steps) - self.k
+        self._emit(
+            t_s,
+            "stall",
+            cur,
+            cue="The recording stopped. Pick up where you left off when you are ready.",
+            detail={"reason": "recording_end", "steps_remaining": left},
+        )
+        self.k = len(self.lesson.steps)
+        return self.events[start:]
 
     # ---------- visibility: not seeing is not evidence ----------
 
@@ -194,10 +212,12 @@ class StepMachine:
         return False
 
     def _object_progress(self, m: FrameMeasure) -> bool:
+        if self.pending_wait:
+            return False
         steps = self.lesson.steps
         cur = steps[self.k]
         if self._step_evidence(cur, m):
-            self._advance(m, reason="object")
+            self._finish_step_object(m, reason="object")
             return True
         # evidence for a later step while the current one is not done: a skip
         for j in range(self.k + 1, len(steps)):
@@ -240,6 +260,9 @@ class StepMachine:
         if verdict is None:
             return
         if verdict.done and verdict.confidence >= t.done_confidence:
+            self._check_amount(m, cur)
+            if self._begin_wait_until(cur):
+                return
             self._advance(m, reason="judge", detail={"confidence": verdict.confidence})
             return
         # maybe they already did the next shape-change step (an origami fold skipped)
@@ -264,6 +287,95 @@ class StepMachine:
         self.judge_calls += 1
         verdict = self.judge.judge(still, reference, step.completion.end_state or "", step.title)
         return verdict if verdict.visible else None
+
+    def _ask_wait_until(self, step: Step, still: bytes):
+        assert self.judge is not None and step.wait_until
+        reference = self.reference_for(step) if self.reference_for else None
+        self.judge_calls += 1
+        verdict = self.judge.judge(still, reference, step.wait_until.condition, step.title)
+        return verdict if verdict.visible else None
+
+    # ---------- AB: amount and judged wait_until ----------
+
+    def _finish_step_object(self, m: FrameMeasure, reason: str) -> None:
+        cur = self.current
+        if cur is None:
+            return
+        self._check_amount(m, cur)
+        if self._begin_wait_until(cur):
+            return
+        self._advance(m, reason=reason)
+
+    def _begin_wait_until(self, step: Step) -> bool:
+        if not step.wait_until or Claim.wait_until not in self.claims:
+            return False
+        self.pending_wait = True
+        self.since_progress_s = 0.0
+        self.settle_run_s = 0.0
+        return True
+
+    def _judged_wait_until(self, m: FrameMeasure) -> bool:
+        if not self.pending_wait:
+            return False
+        cur = self.current
+        if cur is None or not cur.wait_until:
+            self.pending_wait = False
+            return False
+        t = self.tuning
+        if self.judge is None or self.still_at is None:
+            return True
+        if self.settle_run_s < t.settle_s or m.t_s - self.last_judge_t < t.judge_every_s:
+            return True
+        self.last_judge_t = m.t_s
+        still = self.still_at(m.t_s)
+        verdict = self._ask_wait_until(cur, still)
+        if verdict is None:
+            return True
+        if verdict.done and verdict.confidence >= t.done_confidence:
+            self.pending_wait = False
+            self._advance(m, reason="wait_until", detail={"confidence": verdict.confidence})
+            return True
+        if m.t_s - self.last_not_yet_t >= t.not_yet_every_s:
+            self.last_not_yet_t = m.t_s
+            wu = cur.wait_until
+            self._emit(
+                m.t_s,
+                "not_yet",
+                cur,
+                cue=wu.cue_not_yet,
+                detail={
+                    "judged": True,
+                    "condition": wu.condition,
+                    "confidence": verdict.confidence,
+                },
+            )
+        return True
+
+    def _check_amount(self, m: FrameMeasure, step: Step) -> None:
+        amt = step.amount
+        if amt is None or amt.teacher_value is None or Claim.amount not in self.claims:
+            return
+        seen = m.for_area(step.area(self.lesson.work_area_object)).objects.get(amt.object)
+        learner = seen.coverage if seen else 0.0
+        teacher = amt.teacher_value
+        ok = abs(learner - teacher) <= amt.tolerance
+        if ok:
+            return
+        tip = next((t.text for t in step.tips), None)
+        cue = tip or f"That is not quite what I used. Aim for about {teacher:.0%} of the pan."
+        self._emit(
+            m.t_s,
+            "amount",
+            step,
+            cue=cue,
+            detail={
+                "object": amt.object,
+                "measure": amt.measure,
+                "learner_value": round(learner, 3),
+                "teacher_value": teacher,
+                "ok": False,
+            },
+        )
 
     # ---------- stalls ----------
 
@@ -322,4 +434,6 @@ def run(lesson: Lesson, measures: list[FrameMeasure], **kwargs) -> tuple[list[Ev
     machine = StepMachine(lesson, **kwargs)
     for m in measures:
         machine.feed(m)
+    if measures:
+        machine.finish(measures[-1].t_s)
     return machine.events, machine

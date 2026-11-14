@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from instep.learner.measure import ClipMeasures, FrameMeasure
-from instep.lesson.schema import Calibration, Lesson, Span
+from instep.lesson.schema import Calibration, Claim, Lesson, Span
 
 PRESENT = 0.35
 MIN_OUT_OF_VIEW_S = 2.0
@@ -58,6 +58,15 @@ def first_lasting_appearance(frames: list[FrameMeasure], oid: str, lo: float, hi
         else:
             run_start = None
     return None
+
+
+def fill_teacher_amounts(lesson: Lesson, measures: ClipMeasures) -> Lesson:
+    """Replay the teacher recording and write ``teacher_value`` plus reference stills.
+
+    Stub until 1.6 (hand AB Lesson and teacher take). Segmenter replay still snaps step spans.
+    """
+    _ = measures
+    return lesson
 
 
 def calibrate(lesson: Lesson, measures: ClipMeasures) -> tuple[Lesson, CalibrationReport]:
@@ -123,4 +132,7 @@ def calibrate(lesson: Lesson, measures: ClipMeasures) -> tuple[Lesson, Calibrati
     ).model_dump()
     if data["provenance"]["made_by"]:
         data["provenance"]["made_by"]["segmenter"] = measures.segmenter
-    return Lesson.model_validate(data), report
+    out = Lesson.model_validate(data)
+    if Claim.amount in out.claims():
+        out = fill_teacher_amounts(out, measures)
+    return out, report

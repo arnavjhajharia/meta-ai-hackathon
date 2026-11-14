@@ -5,7 +5,41 @@ import pytest
 from pydantic import ValidationError
 
 from instep.eval.labels import load_labels
-from instep.learner.events import Event
+from instep.learner.events import (
+    AMOUNT_DETAIL_KEYS,
+    JUDGED_NOT_YET_DETAIL_KEYS,
+    Event,
+    needs_claim,
+)
+
+
+def test_needs_claim_splits_timer_and_judged_not_yet() -> None:
+    assert needs_claim("amount", {}) == "amount"
+    assert needs_claim("not_yet", {"timer": True}) is None
+    assert needs_claim("not_yet", {"judged": True}) == "wait_until"
+
+
+def test_ab_event_detail_shapes_are_stable() -> None:
+    amount = Event(
+        t_s=1.0,
+        kind="amount",
+        step_id="add_mustard",
+        detail={
+            "object": "mustard_seeds",
+            "measure": "work_area_fraction",
+            "learner_value": 0.5,
+            "teacher_value": 0.08,
+            "ok": False,
+        },
+    )
+    assert AMOUNT_DETAIL_KEYS <= frozenset(amount.detail)
+    judged = Event(
+        t_s=2.0,
+        kind="not_yet",
+        step_id="add_mustard",
+        detail={"judged": True, "condition": "the seeds start to pop", "confidence": 0.9},
+    )
+    assert JUDGED_NOT_YET_DETAIL_KEYS <= frozenset(judged.detail)
 
 
 def test_event_rejects_unknown_kind() -> None:

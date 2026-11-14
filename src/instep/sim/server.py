@@ -127,9 +127,14 @@ class Session:
         )
         self.i = 0
         self.t = 0.0
+        self.recording_closed = False
 
     def _reference(self, step: Step) -> bytes | None:
-        t = step.completion.reference_frame_s
+        t = None
+        if step.wait_until and step.wait_until.reference_frame_s is not None:
+            t = step.wait_until.reference_frame_s
+        elif step.completion.reference_frame_s is not None:
+            t = step.completion.reference_frame_s
         if self.tutorial is None or t is None or not self.tutorial.exists():
             return None
         return to_jpeg(frame_at(self.tutorial, t, 768), 80)
@@ -152,6 +157,14 @@ class Session:
                 }
             )
             self.i += 1
+        if (
+            not self.recording_closed
+            and self.i >= len(self.frames)
+            and self.frames
+            and not self.machine.done
+        ):
+            self.recording_closed = True
+            events += self.machine.finish(self.frames[-1].t_s)
         return events, measures
 
 

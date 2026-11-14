@@ -1,7 +1,7 @@
 """Calibration on hand-built tutorial measurements (plumbing only)."""
 
 from instep.learner.measure import ClipMeasures
-from instep.teacher.calibrate import calibrate
+from instep.teacher.calibrate import calibrate, fill_teacher_amounts
 from tests.test_machine import frames, phone_lesson
 
 
@@ -25,6 +25,13 @@ def test_appearance_snaps_step_end_and_marks_out_of_view() -> None:
     assert [(sp.start_s, sp.end_s) for sp in out.calibration.out_of_view] == [(40.0, 45.0)]
     assert report.findability["mustard_seeds"] > 0.5
     assert out.provenance.made_by.segmenter == "fake"
+
+
+def test_fill_teacher_amounts_is_a_noop_until_teacher_take() -> None:
+    from tests.test_machine import glasses_lesson
+
+    lesson = glasses_lesson()
+    assert fill_teacher_amounts(lesson, clip({})) is lesson
 
 
 def test_unseen_object_keeps_model_times_and_is_reported() -> None:

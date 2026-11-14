@@ -16,6 +16,10 @@ def phone_lesson() -> Lesson:
     return Lesson.model_validate(json.loads((FIXTURES / "lesson_phone_min.json").read_text()))
 
 
+def glasses_lesson() -> Lesson:
+    return Lesson.model_validate(json.loads((FIXTURES / "lesson_glasses_min.json").read_text()))
+
+
 def frames(duration_s: float, seen: dict[str, tuple[float, float]], hidden=(), hands=(), moving=()):
     """seen: object id -> (from_s, to_s) when it is in the work area."""
     out = []
@@ -43,6 +47,23 @@ def frames(duration_s: float, seen: dict[str, tuple[float, float]], hidden=(), h
 
 def kinds(events):
     return [(e.kind, e.step_id) for e in events]
+
+
+def test_recording_end_emits_stall_when_steps_remain() -> None:
+    events, machine = run(phone_lesson(), frames(12, {"mustard_seeds": (5, 12)}))
+    assert machine.done
+    end = [e for e in events if e.detail.get("reason") == "recording_end"]
+    assert len(end) == 1
+    assert end[0].kind == "stall"
+    assert end[0].step_id == "add_curry_leaves"
+    assert end[0].detail["steps_remaining"] == 1
+
+
+def test_recording_end_is_quiet_when_all_steps_done() -> None:
+    events, _ = run(
+        phone_lesson(), frames(30, {"mustard_seeds": (5, 30), "curry_leaves": (15, 30)})
+    )
+    assert not any(e.detail.get("reason") == "recording_end" for e in events)
 
 
 def test_clean_attempt_advances_in_order() -> None:
@@ -87,9 +108,9 @@ def test_out_of_view_time_does_not_count_towards_a_stall() -> None:
     lesson = phone_lesson()
     tuning = Tuning(stall_min_s=20, stall_factor=0)
     events, _ = run(lesson, frames(30, {}, hidden=[(5, 25)]), tuning=tuning)
-    assert not any(e.kind == "stall" for e in events)
+    assert not any(e.kind == "stall" and e.detail.get("reason") != "recording_end" for e in events)
     events, _ = run(lesson, frames(30, {}), tuning=tuning)
-    assert [e.kind for e in events] == ["stall"]
+    assert [e.kind for e in events if e.detail.get("reason") != "recording_end"] == ["stall"]
     assert events[0].detail["replay"] == [9.5, 13.0]
 
 
@@ -141,6 +162,58 @@ def test_manual_step_passes_quietly_when_the_next_step_happens() -> None:
     )
     events, _ = run(lesson, frames(30, {"curry_leaves": (5, 30)}))
     assert [(e.kind, e.step_id) for e in events] == [("advance", "add_curry_leaves")]
+
+
+def test_ab_amount_fires_when_coverage_is_off() -> None:
+    lesson = glasses_lesson()
+    lesson.steps[0].wait_until = None
+    fr = frames(30, {"mustard_seeds": (5, 30)})
+    for m in fr:
+        if ms := m.objects.get("mustard_seeds"):
+            ms.coverage = 0.5
+    events, _ = run(lesson, fr)
+    amt = [e for e in events if e.kind == "amount"]
+    assert len(amt) == 1
+    assert amt[0].step_id == "add_mustard"
+    assert amt[0].detail["ok"] is False
+    assert amt[0].detail["teacher_value"] == 0.08
+
+
+def test_ab_judged_wait_until_holds_then_advances() -> None:
+    lesson = glasses_lesson()
+    n = [0]
+
+    def decide(still: bytes, end_state: str) -> bool:
+        if "pop" in end_state:
+            n[0] += 1
+            return n[0] >= 2
+        return False
+
+    judge = FakeStillJudge(decide)
+    machine = StepMachine(
+        lesson,
+        judge=judge,
+        still_at=lambda t: f"{t:.1f}".encode(),
+        tuning=Tuning(judge_every_s=2, settle_s=0.5, not_yet_every_s=2),
+    )
+    for m in frames(40, {"mustard_seeds": (5, 40)}):
+        machine.feed(m)
+    kinds = [e.kind for e in machine.events]
+    assert "amount" not in kinds
+    judged = [e for e in machine.events if e.kind == "not_yet" and e.detail.get("judged")]
+    assert judged
+    assert judged[0].detail["condition"] == "the seeds start to pop"
+    assert kinds.count("advance") == 1
+    assert machine.events[0].step_id == "add_mustard"
+
+
+def test_phone_lesson_never_emits_amount_or_judged_not_yet() -> None:
+    events, _ = run(
+        phone_lesson(),
+        frames(50, {"mustard_seeds": (5, 50), "curry_leaves": (20, 50)}, hands=[(12, 14)]),
+    )
+    assert not any(e.kind == "amount" for e in events)
+    assert not any(e.kind == "not_yet" and e.detail.get("judged") for e in events)
 
 
 def test_step_with_its_own_work_area_is_measured_there() -> None:
