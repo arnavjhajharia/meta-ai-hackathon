@@ -12,9 +12,9 @@ Topological order — do in this sequence; items with the same number can overla
 
 ## 2 — Interface specs (you draft; she ACKs when online — no footage)
 
-4. **2.1** — `amount` / `not_yet` `detail` shape + any teacher-amount schema tweak (issue #3 checklist).
-5. **5.1** — Per-frame `measure` contract for live path (vs clip hash today).
-6. **6.1** — Voice Q&A API: question + Lesson + still → answer text.
+4. **2.1** — [spec-2.1-amount-not-yet.md](spec-2.1-amount-not-yet.md) (`amount` / `not_yet` `detail`, `Amount.reference_frame_s`; issue #3).
+5. **5.1** — [spec-5.1-per-frame-measure.md](spec-5.1-per-frame-measure.md) (live `Measurer.measure`, websocket `frame` / `frame_result`).
+6. **6.1** — [spec-6.1-voice-answer.md](spec-6.1-voice-answer.md) (`Answerer` + live `question` / `answer` messages).
 
 ## 3 — Offline engineering (still no her videos)
 
